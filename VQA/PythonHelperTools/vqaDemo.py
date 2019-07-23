@@ -13,7 +13,7 @@ dataType    ='mscoco'  # 'mscoco' only for v1.0. 'mscoco' for real and 'abstract
 dataSubType ='train2014'
 annFile     ='%s/Annotations/%s%s_%s_annotations.json'%(dataDir, versionType, dataType, dataSubType)
 quesFile    ='%s/Questions/%s%s_%s_%s_questions.json'%(dataDir, versionType, taskType, dataType, dataSubType)
-imgDir 		= '%s/Images/%s/%s/' %(dataDir, dataType, dataSubType)
+imgDir 		= '%s/Images/%s/' %(dataDir, dataSubType)
 
 # initialize VQA api for QA annotations
 vqa=VQA(annFile, quesFile)

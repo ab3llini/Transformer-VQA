@@ -3,6 +3,8 @@ VQA/Annotations/*
 VQA/Images/*
 VQA/Questions/*
 
+GPT-2/models/*
+
 # Created by https://www.gitignore.io/api/linux,images,pycharm
 # Edit at https://www.gitignore.io/?templates=linux,images,pycharm
 
