@@ -1,10 +1,4 @@
-from VQA.PythonHelperTools.vqaTools import vqa as vqa
-from VQA import config as vqa_config
-from os import listdir
-import os
-import numpy as np
-from tqdm import tqdm
-import random
+import config as vqa_config
 from keras.applications import resnet50
 from keras.preprocessing.image import load_img
 from keras.preprocessing.image import img_to_array

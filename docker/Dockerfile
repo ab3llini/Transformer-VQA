@@ -1,5 +1,5 @@
-FROM tensorflow/tensorflow:latest-gpu-py3
+FROM ab3llini/blindless
 
-RUN pip install tqdm requests fire regex sklearn matplotlib scikit-image keras
+RUN pip install tqdm requests fire regex sklearn matplotlib scikit-image keras torch torchvision
 
 CMD ["/bin/bash"]
