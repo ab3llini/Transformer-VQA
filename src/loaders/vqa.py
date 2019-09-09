@@ -4,6 +4,9 @@ import random
 import matplotlib.pyplot as plt
 import skimage.io as io
 from tqdm import tqdm
+from torchvision import transforms
+from PIL import Image
+
 
 this_path = os.path.dirname(os.path.realpath(__file__))
 src_path = os.path.abspath(os.path.join(this_path, os.pardir))
@@ -34,7 +37,7 @@ class Question:
         plt.show()
 
     def load_image(self):
-        return io.imread(self.image_path)
+        return Image.open(self.image_path)
 
     def __str__(self):
         return 'ID: {}\nQuestion: {}\nAnswers: {}\nImage {}'.format(self._id, self.question, self.answers, self.image_path)
@@ -45,11 +48,10 @@ class VQALoader:
         self.vqa = VQA(annFile, quesFile)
         self.questions = []
 
-    def get_questions(self):
-        # Load all question ids
-        ids = self.vqa.getQuesIds()
+    def build(self, question_ids):
+
         # Get QA instances
-        qa = self.vqa.loadQA(ids)
+        qa = self.vqa.loadQA(question_ids)
 
         print('Building question structure..')
 
@@ -67,19 +69,17 @@ class VQALoader:
 
         return self.questions
 
+    def get_questions(self, ids):
+
+        if ids is None:
+            # Load all question ids
+            ids = self.vqa.getQuesIds()
+
+        return self.build(ids)
+
     # Picks qty questions randomly for general purpose usage.
     def random_samples(self, qty=1):
         if len(self.questions) == 0:
             self.get_questions()
         return random.sample(self.questions, qty)
-
-
-
-if __name__ == '__main__':
-    loader = VQALoader()
-
-    sample = loader.random_samples()[0]
-
-    sample.plot()
-    print(sample)
 

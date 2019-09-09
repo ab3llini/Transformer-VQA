@@ -36,13 +36,14 @@ class EncoderDecoder(nn.Module):
 # For the moment the ResNet network is non-trainable and acts only as a feature extractor
 class ImageEncoder(nn.Module):
 
-    def __init__(self, out_size=768):
+    def __init__(self, out_size=768, train_mode=True):
         super(ImageEncoder, self).__init__()
         # Using pre-trained ResNet
         self.resnet = models.resnet18(pretrained=True)
 
-        # Disable dropout, prepare for feature extraction
-        self.resnet.eval()
+        # Set the model in evaluation mode to deactivate the DropOut modules
+        # This is IMPORTANT to have reproducible results during evaluation!
+        self.resnet.eval() if not train_mode else self.resnet.train()
 
         # Disabling weight updates
         for param in self.resnet.parameters():
@@ -54,7 +55,14 @@ class ImageEncoder(nn.Module):
         # Drop Last layer originally meant for ImageNet
         self.resnet.fc = nn.Linear(in_size, out_size)
 
+        # Put everything on cuda
+        self.resnet.to('cuda')
+
     def forward(self, image):
+
+        # Put the image tensor on cuda
+        image = image.to('cuda')
+
         return self.encode(image)
 
     def encode(self, image):
@@ -83,7 +91,12 @@ class QuestionEncoder(nn.Module):
 
     def forward(self, question_tensor):
         # Get the gpt2 output
-        return self.gpt2(question_tensor)
+
+        question_tensor = question_tensor.to('cuda')
+
+        outputs = self.gpt2(question_tensor)
+
+        return outputs[0]
 
 
 class Encoder(nn.Module):
@@ -94,13 +107,28 @@ class Encoder(nn.Module):
         self.question_encoder = QuestionEncoder(out_size=size)
 
     def forward(self, question, image):
+        qe_out = self.question_encoder(question)
+        ie_out = self.image_encoder(image)
         # Pointwise multiplication between the two resulting tensors
-        return torch.mul(self.question_encoder(question), self.image_encoder(image))
+        return torch.mul(qe_out, ie_out)
 
 
 if __name__ == '__main__':
 
     loader = VQALoader()
-    samples = loader.random_samples()
+    samples = loader.get_questions(ids=[16902003])
+
+    print(samples[0])
+    samples[0].plot()
+
     q_in, i_in = prepare(samples)
+
+    encoder = Encoder()
+    # print(encoder)
+    params = list(encoder.parameters())
+    # print(len(params))
+
+    output = encoder(q_in[0], i_in[0].unsqueeze(0))
+
+    print(output)
 

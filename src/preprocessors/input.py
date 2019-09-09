@@ -6,27 +6,29 @@ import torch
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 
 
-def q_tokenizer_gpt2(question):
+def gpt2_tokenize(question):
     # Encode the question
     indexed_question = gpt2_tokenizer.encode(question)
     # Convert indexed tokens in a PyTorch tensor
     return torch.tensor([indexed_question])
 
 
-def i_normalizer_resnet50(image, size=224):
-    tr = transforms.Compose([
+def resnet50_normalize(image, size=224):
+    normalization_pipe = transforms.Compose([
         transforms.RandomResizedCrop(size),
-        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    return tr(image)
+    return normalization_pipe(image)
 
 
-def prepare(inputs, q_tokenizer=q_tokenizer_gpt2, i_normalizer=i_normalizer_resnet50):
+# This function prepares the inputs for out model
+# It tokenizes the questions using the specified tokenizer
+# It normalizes the images using the provided normalizer
+def prepare(inputs, tokenize_fn=gpt2_tokenize, normalize_fn=resnet50_normalize):
     q, i = [], []
     for o in inputs:
-        q.append(q_tokenizer(o.question))
-        i.append(i_normalizer(o.load_image()))
+        q.append(tokenize_fn(o.question))
+        i.append(normalize_fn(o.load_image()))
     return q, i
