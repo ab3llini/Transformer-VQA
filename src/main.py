@@ -124,9 +124,8 @@ if __name__ == '__main__':
     q_in, i_in = prepare(samples)
 
     encoder = Encoder()
-    # print(encoder)
-    params = list(encoder.parameters())
-    # print(len(params))
+    # 125424384
+    print(f'Model parameters: {sum(p.numel() for p in encoder.parameters() if p.requires_grad)}')
 
     output = encoder(q_in[0], i_in[0].unsqueeze(0))
 
