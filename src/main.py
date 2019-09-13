@@ -4,7 +4,7 @@ from torchvision import models
 from pytorch_transformers import GPT2LMHeadModel
 import logging
 from loaders.vqa import *
-from preprocessors.input import *
+from preprocessors.preparation import *
 
 logging.basicConfig(level=logging.WARNING)
 

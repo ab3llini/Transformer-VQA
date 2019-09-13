@@ -6,9 +6,9 @@ import torch
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 
 
-def gpt2_tokenize(question):
+def gpt2_tokenize(text):
     # Encode the question
-    indexed_question = gpt2_tokenizer.encode(question)
+    indexed_question = gpt2_tokenizer.encode(text, add_special_tokens=True)
     # Convert indexed tokens in a PyTorch tensor
     return torch.tensor([indexed_question])
 
@@ -23,12 +23,11 @@ def resnet50_normalize(image, size=224):
     return normalization_pipe(image)
 
 
-# This function prepares the inputs for out model
-# It tokenizes the questions using the specified tokenizer
-# It normalizes the images using the provided normalizer
-def prepare(inputs, tokenize_fn=gpt2_tokenize, normalize_fn=resnet50_normalize):
-    q, i = [], []
-    for o in inputs:
-        q.append(tokenize_fn(o.question))
-        i.append(normalize_fn(o.load_image()))
-    return q, i
+if __name__ == '__main__':
+    print(gpt2_tokenizer.all_special_tokens)
+
+    tk = gpt2_tokenizer.encode('hey how are you brother ?', add_special_tokens=False)
+    print(tk)
+
+    for t in tk:
+        print(gpt2_tokenizer.decode(t))
