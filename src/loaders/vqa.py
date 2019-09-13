@@ -12,7 +12,6 @@ import pickle
 from torchvision import transforms
 from PIL import Image
 
-
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2', pad_token='<PAD>')
 tokenize = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
@@ -131,6 +130,7 @@ class VQADataset(Dataset):
               .format(range(q_min_len, q_max_len + 1), range(a_min_len, a_max_len + 1), n_answers))
 
         sample_size = 0
+        grayscale_dropped = 0
 
         # Create meaningful structure.. VQA Helpers are really bad!
         for _qa in tqdm(qa):
@@ -142,10 +142,11 @@ class VQADataset(Dataset):
             # Extract only answers and get rid of additional annotations
             answers = [q['answer'] for q in _qa['answers']]
 
-            # Tokenize and filter
-            tkn_question, tkn_answers = self.filter(question, answers, q_min_len, q_max_len, a_min_len, a_max_len,
-                                                    n_answers)
-            if tkn_question is not None:
+            try:
+                # Tokenize and filter
+                tkn_question, tkn_answers = self.filter(question, answers, image_path, q_min_len, q_max_len, a_min_len,
+                                                        a_max_len,
+                                                        n_answers)
 
                 # Create and pad sequences
                 padded_sequences = self.create_and_pad_sequences(tkn_question, tkn_answers, q_max_len + a_max_len)
@@ -166,6 +167,11 @@ class VQADataset(Dataset):
                     self.samples = self.samples[:limit]
                     # Break procedure
                     break
+            except Exception as e:
+                if str(e) == 'Grayscale image':
+                    grayscale_dropped += 1
+
+        print('We had to drop {} samples because they had grayscale images :('.format(grayscale_dropped))
 
         # If needed, cache the samples. You might want to do it since it takes a lot to build the dataset
         if save:
@@ -181,13 +187,18 @@ class VQADataset(Dataset):
 
     # This method filters and tokenizes the question/answers
     @staticmethod
-    def filter(question, answers, q_min_len, q_max_len, a_min_len, a_max_len, n_answers):
+    def filter(question, answers, image, q_min_len, q_max_len, a_min_len, a_max_len, n_answers):
+
+        # First and foremost, drop all grayscale images and relative questions.
+        # Sadly VGG can't deal with these images properly
+        if Image.open(image).mode != 'RGB':
+            raise Exception('Grayscale image')
 
         tokenized_question = tokenize(question)
         tokenized_answers = []
 
         if len(tokenized_question) not in range(q_min_len, q_max_len + 1):
-            return None, None
+            raise Exception('Too long or short')
 
         for answer in answers:
             tokenized_answer = tokenize(answer)
@@ -202,7 +213,7 @@ class VQADataset(Dataset):
 
         # Check consistency
         if len(tokenized_answers) < n_answers:
-            return None, None
+            raise Exception('Not enough answers')
 
         return tokenized_question, tokenized_answers
 
@@ -234,6 +245,10 @@ class VQADataset(Dataset):
 
     @staticmethod
     def transform_image(image):
+
+        if image.mode != 'RGB':
+            raise Exception('Fukin grayscale!')
+
         transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.ToTensor(),
@@ -247,5 +262,4 @@ class VQADataset(Dataset):
 
     def __getitem__(self, item):
         sample = self.samples[item]
-        return torch.tensor([sample['seq']]), self.transform_image(Image.open(sample['img']))
-
+        return torch.tensor(sample['seq']), self.transform_image(Image.open(sample['img']))

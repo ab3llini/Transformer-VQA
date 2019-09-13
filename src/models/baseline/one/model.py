@@ -69,6 +69,8 @@ class Model(nn.Module):
     def __init__(self, out_size=768, gpt2lh=GPT2LMHeadModel.from_pretrained('gpt2')):
         super(Model, self).__init__()
 
+        print('Loading model weights..')
+
         # Isolate the transformer
         self.gpt2 = copy.deepcopy(gpt2lh.transformer)
 
@@ -95,22 +97,28 @@ class Model(nn.Module):
         # Put everything on cuda
         self.gpt2.to('cuda')
 
-    def forward(self, question, image):
-        gpt2_out = self.gpt2(question)
-        vgg_out = self.image_encoder(image)
+    def forward(self, sequences, labels, images):
+        gpt2_out = self.gpt2(sequences)
+        vgg_out = self.image_encoder(images)
 
         # Pointwise multiplication
-        mask = torch.mul(gpt2_out[0], vgg_out)
+        mask = torch.mul(gpt2_out[0], vgg_out.unsqueeze(1))
 
         # Expansion
-        out = self.activation(mask)
+        lm_logits = self.activation(mask)
 
-        # We will fine tune the model to distribute probabilities properly
-        # return nn.Softmax(out)
+        outputs = (lm_logits,) + gpt2_out[1:]
+        if labels is not None:
+            # Shift so that tokens < n predict n
+            shift_logits = lm_logits[..., :-1, :].contiguous()
+            shift_labels = labels[..., 1:].contiguous()
+            # Flatten the tokens
+            loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
+            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
+                            shift_labels.view(-1))
+            outputs = (loss,) + outputs
 
-        # We don't actually need to explicitly write down a softmax here
-        # The softmax is integrated in the Pytorch CrossEntropyLoss function
-        return out
+        return outputs
 
     def grad_info(self):
         print('Model : Grad status')
