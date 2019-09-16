@@ -9,30 +9,24 @@ from torch.utils.tensorboard import SummaryWriter
 
 # This file contains training procedures for our models
 model = baseline.Model()
-dataset = VQADataset(rebuild=True, limit=100000)
+dataset = VQADataset()
 
-num_train_epochs = 1
-train_dataloader = DataLoader(dataset=dataset, batch_size=64, pin_memory=True)
+num_train_epochs = 5
+train_dataloader = DataLoader(dataset=dataset, batch_size=10, pin_memory=True)
 
-no_decay = ['bias', 'LayerNorm.weight']
-optimizer_grouped_parameters = [
-    {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-     'weight_decay': 0.0},
-    {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-]
-optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5, eps=1e-8)
+optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
 global_step = 0
 tr_loss, logging_loss = 0.0, 0.0
 device = 'cuda'
 accumulation_steps = 1
-logging_steps = 100
+logging_steps = 10
 
 writer = SummaryWriter()
 
 
 model.zero_grad()
 
-for _ in range(3):
+for _ in range(num_train_epochs):
     epoch_iterator = tqdm(train_dataloader, desc="Iteration")
     for step, batch in enumerate(epoch_iterator):
         seqs = batch[0].to(device)
@@ -52,5 +46,4 @@ for _ in range(3):
                 writer.add_scalar('loss', (tr_loss - logging_loss) / logging_steps, global_step)
                 logging_loss = tr_loss
 
-model_to_save = model.module if hasattr(model, 'module') else model  # Take care of distributed/parallel training
-model_to_save.save_pretrained(output_dir)
+torch.save(model, 'model_checkpoint.h5')
