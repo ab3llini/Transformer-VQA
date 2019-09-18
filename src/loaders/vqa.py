@@ -11,45 +11,13 @@ from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampl
 import pickle
 from torchvision import transforms
 from PIL import Image
+import collections
 
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2', pad_token='<PAD>')
 tokenize = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
-# Add the <pad> token to the vocabulary
-SPECIAL_TOKENS = ["<pad>"]
-# tokenizer.set_special_tokens(SPECIAL_TOKENS)
-
-'''
-# Set the number of special tokens in the model
-model.set_num_special_tokens(len(SPECIAL_TOKENS))
-
-Examples::
-
-        import torch
-        from pytorch_transformers import GPT2Tokenizer, GPT2DoubleHeadsModel
-        
-        tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-        model = GPT2DoubleHeadsModel.from_pretrained('gpt2')
-        
-        # Add a [CLS] to the vocabulary (we should train it also!)
-        tokenizer.add_special_tokens({'cls_token': '[CLS]'})
-        model.resize_token_embeddings(len(tokenizer))  # Update the model embeddings with the new vocabulary size
-        print(tokenizer.cls_token_id, len(tokenizer))  # The newly token the last token of the vocabulary
-        
-        choices = ["Hello, my dog is cute [CLS]", "Hello, my cat is cute [CLS]"]
-        encoded_choices = [tokenizer.encode(s) for s in choices]
-        cls_token_location = [tokens.index(tokenizer.cls_token_id) for tokens in encoded_choices]
-
-        input_ids = torch.tensor(encoded_choices).unsqueeze(0)  # Batch size: 1, number of choices: 2
-        mc_token_ids = torch.tensor([cls_token_location])  # Batch size: 1
-
-        outputs = model(input_ids, mc_token_ids=mc_token_ids)
-        lm_prediction_scores, mc_prediction_scores = outputs[:2]
-
-'''
-
 # Get the <pad> token's index
-pad_idx = tokenizer.convert_tokens_to_ids(['<pad>'])[0]
+pad_idx = tokenizer.convert_tokens_to_ids(['<PAD>'])[0]
 
 this_path = os.path.dirname(os.path.realpath(__file__))
 src_path = os.path.abspath(os.path.join(this_path, os.pardir))
@@ -92,6 +60,7 @@ class PrintableSample:
 class VQADataset(Dataset):
 
     def __init__(self,
+                 fname=None,
                  caching=True,
                  rebuild=False,
                  q_min_len=5,
@@ -99,24 +68,93 @@ class VQADataset(Dataset):
                  a_min_len=1,
                  a_max_len=2,
                  n_answers=3,
-                 limit=None
+                 limit=None,
+                 filter_method='longest'
                  ):
 
         self.samples = []
         self.tokenizer = tokenizer
 
         if not rebuild:
-            print("Looking for cached samples")
-            if not self.load():
+            print("Looking for cached samples named '{}'".format(fname))
+            if not self.load(fname):
                 print("Samples not found, rebuilding dataset")
-                self.build(q_min_len, q_max_len, a_min_len, a_max_len, n_answers, save=caching, limit=limit)
+                if filter_method == 'range':
+                    self.build_in_range(q_min_len, q_max_len, a_min_len, a_max_len, n_answers, limit=limit)
+                    # If needed, cache the samples. You might want to do it since it takes a lot to build the dataset
+                    self.save(fname) if fname is not None else self.save()
+                else:
+                    self.build(limit=limit)
+                    # If needed, cache the samples. You might want to do it since it takes a lot to build the dataset
+                    self.save(fname) if fname is not None else self.save()
             else:
                 print("Samples found and loaded in RAM")
         else:
             print("Rebuilding dataset")
-            self.build(q_min_len, q_max_len, a_min_len, a_max_len, n_answers, save=caching, limit=limit)
+            if filter_method == 'range':
+                self.build_in_range(q_min_len, q_max_len, a_min_len, a_max_len, n_answers, limit=limit)
+                # If needed, cache the samples. You might want to do it since it takes a lot to build the dataset
+                self.save(fname) if fname is not None else self.save()
+            else:
+                self.build(limit=limit)
+                # If needed, cache the samples. You might want to do it since it takes a lot to build the dataset
+                self.save(fname) if fname is not None else self.save()
 
-    def build(self, q_min_len, q_max_len, a_min_len, a_max_len, n_answers, save, limit):
+    def build(self, limit):
+        # Load VQA helpers and create indexes
+        vqa = VQA(annFile, quesFile)
+
+        # Get QA instances
+        qa = vqa.loadQA(vqa.getQuesIds())
+
+        answers_size = {}
+
+        print('Computing answer length structure')
+        # Create meaningful structure.. VQA Helpers are really bad!
+        for data in tqdm(qa):
+            # Parse the question
+            q_id, question, answers, image_path = self.parse_question(data, vqa)
+
+            for answer in answers:
+                tokenized_answer = tokenize(answer)
+                _len = len(tokenized_answer)
+                if _len in answers_size:
+                    answers_size[_len].append({'q_id': q_id, 'q': question, 'a': answer, 'i': image_path})
+                else:
+                    answers_size[_len] = [{'q_id': q_id, 'q': question, 'a': answer, 'i': image_path}]
+
+        print('Sorting by question length')
+        for a_len, data in answers_size.items():
+            print('Considering answers {} token long, found {} samples'.format(a_len, len(data)))
+            print('Sorting by question length..')
+            answers_size[a_len] = sorted(data, key=lambda k: len(k['q']))
+
+        print('Building dataset..')
+        answers_size = collections.OrderedDict(sorted(answers_size.items()))
+
+        added = 0
+
+        longest = [key for key, value in answers_size][0]
+        input_size = len(longest['q']) + len(longest['a'])
+
+        print('The input size is {} due to the sample : {}'.format(input_size, longest))
+
+        for _len, data in answers_size.items():
+            for sample in data:
+                if added <= limit:
+                    tk_q = tokenize(sample['q'])
+                    tk_a = tokenize(sample['a'])
+                    pad_qa = self.create_and_pad_sequences(tk_q, tk_a, input_size)
+                    self.samples += self.create_samples(sample['q_id'], tk_q, tk_a, pad_qa, sample['i'])
+
+        print('Dataset created, here are some examples')
+
+        for e in self.samples[:10]:
+            print(e)
+
+        print('Saving..')
+
+    def build_in_range(self, q_min_len, q_max_len, a_min_len, a_max_len, n_answers, limit):
 
         # Load VQA helpers and create indexes
         vqa = VQA(annFile, quesFile)
@@ -124,41 +162,31 @@ class VQADataset(Dataset):
         # Get QA instances
         qa = vqa.loadQA(vqa.getQuesIds())
 
-        print('JSON files parsed, initializing filtering procedure.')
-
-        print('Keeping questions in range {}, answers in range {}, questions with at least {} answers'
-              .format(range(q_min_len, q_max_len + 1), range(a_min_len, a_max_len + 1), n_answers))
-
         sample_size = 0
         grayscale_dropped = 0
 
         # Create meaningful structure.. VQA Helpers are really bad!
-        for _qa in tqdm(qa):
-            q_id = _qa['question_id']
-            # Access actual question rather than it's ID
-            question = vqa.qqa[q_id]['question']
-            # Pre compute actual image path
-            image_path = imgDir + 'COCO_' + dataSubType + '_' + str(_qa['image_id']).zfill(12) + '.jpg'
-            # Extract only answers and get rid of additional annotations
-            answers = [q['answer'] for q in _qa['answers']]
+        for data in tqdm(qa):
+            # Parse the question
+            q_id, question, answers, image_path = self.parse_question(data=data, vqa=vqa)
 
             try:
                 # Tokenize and filter
-                tkn_question, tkn_answers = self.filter(question, answers, image_path, q_min_len, q_max_len, a_min_len,
-                                                        a_max_len,
-                                                        n_answers)
+                tkn_question, tkn_answers = self.filter_in_range(question, answers, image_path, q_min_len, q_max_len, a_min_len,
+                                                                 a_max_len,
+                                                                 n_answers)
 
                 # Create and pad sequences
                 padded_sequences = self.create_and_pad_sequences(tkn_question, tkn_answers, q_max_len + a_max_len)
 
                 # Add these sequences to our samples, including question id & image path
-                self.samples += self.create_samples(q_id, padded_sequences, image_path)
+                self.samples += self.create_samples(q_id, tkn_question * len(padded_sequences), tkn_answers, padded_sequences, image_path)
 
                 # Keep track of how many samples we have created
                 sample_size += n_answers
 
                 # Print checkpoint
-                if sample_size % (n_answers * 100000) == 0:
+                if sample_size % (n_answers * 10000) == 0:
                     print('Checkpoint : created {} samples'.format(sample_size))
 
                 # Check if we need to stop
@@ -173,21 +201,29 @@ class VQADataset(Dataset):
 
         print('We had to drop {} samples because they had grayscale images :('.format(grayscale_dropped))
 
-        # If needed, cache the samples. You might want to do it since it takes a lot to build the dataset
-        if save:
-            self.save()
+    @staticmethod
+    def parse_question(data, vqa):
+        q_id = data['question_id']
+        # Access actual question rather than it's ID
+        question = vqa.qqa[q_id]['question']
+        # Pre compute actual image path
+        image_path = imgDir + 'COCO_' + dataSubType + '_' + str(data['image_id']).zfill(12) + '.jpg'
+        # Extract only answers and get rid of additional annotations
+        answers = [q['answer'] for q in data['answers']]
+
+        return q_id, question, answers, image_path
 
     # This method creates samples for the given padded sequences including all the information required
     @staticmethod
-    def create_samples(q_id, padded_seqs, image_path):
+    def create_samples(q_id, questions, answers, padded_seqs, image_path):
         new = []
-        for seq in padded_seqs:
-            new.append({'id': q_id, 'seq': seq, 'img': image_path})
+        for q, a, seq in zip(questions, answers, padded_seqs):
+            new.append({'id': q_id, 'q': q, 'a' : a, 'seq': seq, 'img': image_path})
         return new
 
     # This method filters and tokenizes the question/answers
     @staticmethod
-    def filter(question, answers, image, q_min_len, q_max_len, a_min_len, a_max_len, n_answers):
+    def filter_in_range(question, answers, image, q_min_len, q_max_len, a_min_len, a_max_len, n_answers):
 
         # First and foremost, drop all grayscale images and relative questions.
         # Sadly VGG can't deal with these images properly
@@ -197,13 +233,17 @@ class VQADataset(Dataset):
         tokenized_question = tokenize(question)
         tokenized_answers = []
 
-        if len(tokenized_question) not in range(q_min_len, q_max_len + 1):
-            raise Exception('Too long or short')
+        if q_max_len is not None and q_min_len is not None:
+            if len(tokenized_question) not in range(q_min_len, q_max_len + 1):
+                raise Exception('Too long or short')
 
         for answer in answers:
             tokenized_answer = tokenize(answer)
-            if len(tokenized_answer) not in range(a_min_len, a_max_len + 1):
-                continue
+            if a_max_len is not None and a_min_len is not None:
+                if len(tokenized_answer) not in range(a_min_len, a_max_len + 1):
+                    continue
+                else:
+                    tokenized_answers.append(tokenized_answer)
             else:
                 tokenized_answers.append(tokenized_answer)
 
@@ -216,6 +256,11 @@ class VQADataset(Dataset):
             raise Exception('Not enough answers')
 
         return tokenized_question, tokenized_answers
+
+    # This method filters the samples by keeping the longest sequences first
+    @staticmethod
+    def filter_longest():
+        return 4
 
     @staticmethod
     def decode_sample(sample):
@@ -231,13 +276,13 @@ class VQADataset(Dataset):
             padded_seqs.append(seq)
         return padded_seqs
 
-    def save(self):
-        with open(os.path.join(this_path, 'samples.pk'), 'wb') as fd:
+    def save(self, fname='samples.pk'):
+        with open(os.path.join(this_path, fname), 'wb') as fd:
             pickle.dump(self.samples, fd)
 
-    def load(self):
+    def load(self, fname='samples.pk'):
         try:
-            with open(os.path.join(this_path, 'samples.pk'), 'rb') as fd:
+            with open(os.path.join(this_path, fname), 'rb') as fd:
                 self.samples = pickle.load(fd)
             return True
         except (OSError, IOError) as e:
@@ -263,3 +308,7 @@ class VQADataset(Dataset):
     def __getitem__(self, item):
         sample = self.samples[item]
         return torch.tensor(sample['seq']), self.transform_image(Image.open(sample['img']))
+
+
+if __name__ == '__main__':
+    VQADataset(fname='longest_seqs.pk', limit=500000)
