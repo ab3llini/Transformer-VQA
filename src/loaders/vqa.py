@@ -134,12 +134,23 @@ class VQADataset(Dataset):
 
         added = 0
 
-        longest = [key for key, value in answers_size][0]
+        longest = 0
+
+        for _len, data in answers_size.items():
+            if len(data) < 100:
+                continue
+            else:
+                if
+
+        longest = [key for key, value in answers_size.items()][0]
         input_size = len(longest['q']) + len(longest['a'])
 
         print('The input size is {} due to the sample : {}'.format(input_size, longest))
 
         for _len, data in answers_size.items():
+            if len(data) < 100:
+                print('Skipping {}-sized answers.. not enough samples'.format(_len))
+                continue
             for sample in data:
                 if added <= limit:
                     tk_q = tokenize(sample['q'])

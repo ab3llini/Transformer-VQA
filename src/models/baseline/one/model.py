@@ -96,7 +96,7 @@ class Model(nn.Module):
         # Put everything on cuda
         self.gpt2.to('cuda')
 
-    def forward(self, sequences, labels, images):
+    def forward(self, sequences, images, labels=None):
         gpt2_out = self.gpt2(sequences)
         vgg_out = self.image_encoder(images)
 
