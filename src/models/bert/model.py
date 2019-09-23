@@ -98,7 +98,7 @@ class Model(nn.Module):
             else:
                 print('Trainable : FALSE ->', name)
 
-        print(f'Model parameters: {sum(p.numel() for p in self.parameters() if p.requires_grad)}')
+        print('Model parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
 
     def forward(self, token_ids, token_type_ids, attenton_mask, images):
 
