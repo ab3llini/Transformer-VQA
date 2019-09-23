@@ -68,8 +68,8 @@ class LanguageModel(nn.Module):
             param.requires_grad = False
 
     # Standard forward, make sure to prepare inputs properly
-    def forward(self, token_ids, token_type_ids):
-        return self.bert(token_ids, token_type_ids)[0]  # (batch_size, n_tokens, bert_size)
+    def forward(self, token_ids, token_type_ids, attention_mask):
+        return self.bert(token_ids, token_type_ids, attention_mask)[0]  # (batch_size, n_tokens, bert_size)
 
 
 # Multimodal fusion
@@ -100,9 +100,9 @@ class Model(nn.Module):
 
         print(f'Model parameters: {sum(p.numel() for p in self.parameters() if p.requires_grad)}')
 
-    def forward(self, token_ids, token_type_ids, images):
+    def forward(self, token_ids, token_type_ids, attenton_mask, images):
 
-        language_model_out = self.language_model(token_ids, token_type_ids)  # (batch_size, n_tokens, bert_size)
+        language_model_out = self.language_model(token_ids, token_type_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)
         image_encoder_out = self.image_encoder(images)  # (batch_size, 7, 7, encoder_dim)
 
         batch_size = image_encoder_out.size(0)
@@ -112,7 +112,7 @@ class Model(nn.Module):
         image_encoder_out = image_encoder_out.view(batch_size, -1, image_encoder_dim)  # attention, alphas
 
         # Compute the attention over the 512 channels of VGG using the bert hidden hyper parameters
-        attention_out = image_encoder_out[0]  # (batch_size, n_tokens, encoder_dim)
+        attention_out = self.question_image_att(image_encoder_out, language_model_out)[0]  # (batch_size, n_tokens, encoder_dim)
 
         # Bring the attention output to the same space of the bert output, then multiply
         fusion = language_model_out * self.attention_fc(attention_out)  # (batch_size, n_tokens, bert_size)

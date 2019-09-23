@@ -42,21 +42,49 @@ class Sample:
         self.image_id = image_id
         self.tkn_question = [tokenizer.cls_token_id] + tokenize(question) + [tokenizer.sep_token_id]
         self.tkn_answer = tokenize(answer) + [tokenizer.sep_token_id]
-        self.sequence = None
-        self.token_type_ids = None
+        self.sequence = None  # The input to the model
+        self.masked_sequence = None
+        self.token_type_ids = None  # 0 are the question, 1 the answer
+        self.attention_mask = None  # 1 are NOT padding tokens, 0 are padding tokens
+
+    def mask_sequence(self):
+        start_mask = len(self.tkn_question)
+        end_mask = start_mask + len(self.tkn_answer) - 1  # -1 do not account for last sep
+        self.masked_sequence = self.sequence.copy()
+        self.masked_sequence[start_mask:end_mask] = [tokenizer.mask_token_id] * (end_mask - start_mask)
+
+        assert len(self.masked_sequence) == len(self.sequence)
+
+    def get_pad_start_index(self):
+        return 1 + len(self.tkn_question) + 1 + len(self.tkn_answer) + 1
 
     def pad_sequence(self, to_size):
-        self.sequence = VQADataset.pad_sequence(self.tkn_question, self.tkn_answer, to_size, tokenizer.pad_token_id)
+        padded, mask = VQADataset.pad_sequence(self.tkn_question, self.tkn_answer, to_size, tokenizer.pad_token_id)
+        self.sequence = padded
+        self.attention_mask = mask
 
     def compute_token_type_ids(self):
         self.token_type_ids = [0] * (len(self.tkn_question) + 2) + [1] * (
-                    len(self.sequence) - (len(self.tkn_question) + 2))
+                len(self.sequence) - (len(self.tkn_question) + 2))
 
     def __str__(self):
         io.imshow(io.imread(image_path(self.image_id)))
         io.show()
-        return 'Question: {}\nAnswer:{}\nTokenized Question: {}\nTokenized Answer: {}\nSequence: {}\n Types: {}\n ' \
-               'Image: {}'.format(self.question, self.answer, self.tkn_question, self.tkn_answer, self.sequence,
+        return 'Question: {}' \
+               '\nAnswer:{}' \
+               '\nTokenized Question: {}' \
+               '\nTokenized Answer: {}' \
+               '\nSequence: {}' \
+               '\nMasked sequence: {}' \
+               '\nPadding mask: {}' \
+               '\nTypes: {}\n ' \
+               'Image: {}'.format(self.question,
+                                  self.answer,
+                                  self.tkn_question,
+                                  self.tkn_answer,
+                                  self.sequence,
+                                  self.masked_sequence,
+                                  self.attention_mask,
                                   self.token_type_ids,
                                   self.image_id)
 
@@ -64,7 +92,11 @@ class Sample:
         return len(self.tkn_question) + len(self.tkn_answer) if self.sequence is None else len(self.sequence)
 
     def get_sample(self):
-        return self.sequence, self.token_type_ids, Image.open(image_path(self.image_id))
+        return self.masked_sequence, \
+               self.sequence, \
+               self.token_type_ids, \
+               self.attention_mask, \
+               Image.open(image_path(self.image_id))
 
 
 class VQADataset(Dataset):
@@ -133,7 +165,7 @@ class VQADataset(Dataset):
 
         kept, dropped = [], []
         for length, n_candidates in lengths.items():
-            if n_candidates >= 100:
+            if n_candidates >= 1000:
                 kept.append(length)
             else:
                 dropped.append(length)
@@ -146,6 +178,8 @@ class VQADataset(Dataset):
         print('Padding sequences..')
         for candidate in tqdm(selected):
             candidate.pad_sequence(to_size=longest_candidate)
+            candidate.mask_sequence()
+            candidate.compute_token_type_ids()
 
         self.samples = selected
 
@@ -164,9 +198,13 @@ class VQADataset(Dataset):
     @staticmethod
     def pad_sequence(tkn_question, tkn_answer, padding_size, padding_token):
 
-        return tkn_question + tkn_answer + (
-                [padding_token] * (padding_size - len(tkn_question) - len(tkn_answer))
-        )
+        tkql = len(tkn_question)
+        tkal = len(tkn_answer)
+        padl = (padding_size - tkql - tkal)
+
+        mask = [1] * (tkql + tkal) + [0] * padl
+
+        return tkn_question + tkn_answer + ([padding_token] * padl), mask
 
     def save(self, fname='samples.pk'):
         with open(os.path.join(this_path, fname), 'wb') as fd:
@@ -203,16 +241,19 @@ class VQADataset(Dataset):
 
     def __getitem__(self, item):
         sample = self.samples[item]
-        token_ids, token_type_ids, img = sample.get_sample()
-        return torch.tensor(token_ids), torch.tensor(token_type_ids), self.transform_image(img)
+        token_ids_masked, token_ids, token_type_ids, att_mask, img = sample.get_sample()
+        return torch.tensor(token_ids_masked), \
+               torch.tensor(token_ids), \
+               torch.tensor(token_type_ids), \
+               torch.tensor(att_mask), \
+               self.transform_image(img)
 
 
 if __name__ == '__main__':
 
     dataset = VQADataset(fname='bert_vgg_padded_types_dataset.pk')
-    for s in tqdm(dataset.samples):
-        s.compute_token_type_ids()
+
+    for sample in tqdm(dataset.samples):
+        sample.compute_token_type_ids()
 
     dataset.save(fname='bert_vgg_padded_types_dataset.pk')
-    for sample in dataset.samples[:10]:
-        print(sample, '\n' + '*' * 100)
