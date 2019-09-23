@@ -4,8 +4,7 @@ import os
 this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
-
-print(root_path)
+sys.path.append('BlindLess/data/vqa/PythonHelperTools')
 
 
 import os
