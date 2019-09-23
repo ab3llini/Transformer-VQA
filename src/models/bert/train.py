@@ -7,7 +7,7 @@ import torch
 from pytorch_transformers import BertConfig
 from pytorch_transformers import BertTokenizer
 import random
-import signal
+import sys
 
 this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
