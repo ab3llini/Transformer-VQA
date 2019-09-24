@@ -90,12 +90,14 @@ for epoch in range(epochs):
 
         if it % logging_interval == 0:
             for s in range(4):
-                print('\nMasked  = ', tokenizer.decode(token_ids_masked[s].tolist()))
-                print('Real  = ', tokenizer.decode(token_ids[s].tolist()))
+                print('\nSome predictions..')
+                print('Masked input  = ', tokenizer.decode(token_ids_masked[s].tolist()))
                 print('Output = ', tokenizer.decode(torch.argmax(out[s], dim=1).tolist()))
+                print('Ground truth  = ', tokenizer.decode(token_ids[s].tolist()))
+
 
         # Print
-        iterations.set_description('Loss: {}'.format(loss.item()))
+        iterations.set_description('Epoch : {}/{} - Loss: {}'.format(epoch + 1, epochs, loss.item()))
         writer.add_scalar('Loss/train', loss.item(), it)
 
     torch.save(model,
