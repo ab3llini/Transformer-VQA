@@ -8,38 +8,22 @@ sys.path.append('/BlindLess/data/vqa/PythonHelperTools')
 
 
 import os
-from vqaTools.vqa import VQA
-import random
-import matplotlib.pyplot as plt
+from helpers.vqa import VQA
 from tqdm import tqdm
-from PIL import Image
 from pytorch_transformers import BertTokenizer
-from torchvision import transforms
 import torch
-from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler
+from torch.utils.data import Dataset
 import pickle
 from torchvision import transforms
 from PIL import Image
-import collections
 import skimage.io as io
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from helpers.loader import *
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 tokenize = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
-this_path = os.path.dirname(os.path.realpath(__file__))
-src_path = os.path.abspath(os.path.join(this_path, os.pardir))
 
-dataDir = os.path.join(src_path, '../data/vqa')
-versionType = 'v2_'  # this should be '' when using VQA v2.0 dataset
-taskType = 'OpenEnded'  # 'OpenEnded' only for v2.0. 'OpenEnded' or 'MultipleChoice' for v1.0
-dataType = 'mscoco'  # 'mscoco' only for v1.0. 'mscoco' for real and 'abstract_v002' for abstract for v1.0.
-dataSubType = 'train2014'
-annFile = '%s/Annotations/%s%s_%s_annotations.json' % (dataDir, versionType, dataType, dataSubType)
-quesFile = '%s/Questions/%s%s_%s_%s_questions.json' % (dataDir, versionType, taskType, dataType, dataSubType)
-imgDir = '%s/Images/%s/' % (dataDir, dataSubType)
-
-image_path = lambda image_id: imgDir + 'COCO_' + dataSubType + '_' + str(image_id).zfill(12) + '.jpg'
+get_image_path = lambda image_id: imgDir + 'COCO_' + dataSubType + '_' + str(image_id).zfill(12) + '.jpg'
 
 
 # High level representation of a sample
@@ -77,7 +61,7 @@ class Sample:
                 len(self.sequence) - (len(self.tkn_question) + 2))
 
     def __str__(self):
-        io.imshow(io.imread(image_path(self.image_id)))
+        io.imshow(io.imread(get_image_path(self.image_id)))
         io.show()
         return 'Question: {}' \
                '\nAnswer:{}' \
@@ -105,12 +89,13 @@ class Sample:
                self.sequence, \
                self.token_type_ids, \
                self.attention_mask, \
-               Image.open(image_path(self.image_id))
+               Image.open(get_image_path(self.image_id))
 
 
 class VQADataset(Dataset):
 
     def __init__(self,
+                 task='train',
                  fname=None,
                  caching=True,
                  rebuild=False,
@@ -119,6 +104,7 @@ class VQADataset(Dataset):
 
         self.samples = []
         self.tokenizer = tokenizer
+        self.task = task
 
         if not rebuild:
             print("Looking for cached samples named '{}'".format(fname))
@@ -140,8 +126,9 @@ class VQADataset(Dataset):
                 self.save(fname) if fname is not None else self.save()
 
     def build(self, limit):
+
         # Load VQA helpers and create indexes
-        vqa = VQA(annFile, quesFile)
+        vqa = VQALoader(version=self.task).load()
 
         # Get QA instances
         qa = vqa.loadQA(vqa.getQuesIds())
@@ -229,7 +216,7 @@ class VQADataset(Dataset):
 
     @staticmethod
     def is_rgb(image_id):
-        return Image.open(image_path(image_id)).mode == 'RGB'
+        return Image.open(get_image_path(image_id)).mode == 'RGB'
 
     @staticmethod
     def transform_image(image):

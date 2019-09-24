@@ -1,9 +1,5 @@
 from models.baseline.one import model as baseline
-from loaders.vqa import *
-import torch.optim as optim
-import torch.nn as nn
-from pytorch_transformers import AdamW
-from tqdm import trange
+from helpers.dataset import *
 from torch.utils.tensorboard import SummaryWriter
 
 

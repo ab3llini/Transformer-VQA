@@ -1,5 +1,4 @@
-import torch
-from loaders.vqa import *
+from helpers.dataset import *
 from random import *
 from pytorch_transformers import GPT2Tokenizer
 

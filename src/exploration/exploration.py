@@ -1,6 +1,3 @@
-from loaders.vqa import *
-from tqdm import tqdm
-from pytorch_transformers import GPT2Tokenizer
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt

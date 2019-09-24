@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torchvision import models
 from pytorch_transformers import GPT2LMHeadModel
-from loaders.vqa import *
+from loaders.dataset import *
 
 
 # This is a vgg based encoder that uses a pre-trained vgg network

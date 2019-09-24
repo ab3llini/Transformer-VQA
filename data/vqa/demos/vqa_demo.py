@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from vqaTools.vqa import VQA
+from helpers.vqa import VQA
 import random
 import skimage.io as io
 import matplotlib.pyplot as plt

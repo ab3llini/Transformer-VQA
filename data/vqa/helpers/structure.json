@@ -1,0 +1,14 @@
+{
+  "version" : "v2_",
+  "task" : "OpenEnded",
+  "data" : "mscoco",
+  "objective" : {
+    "train" : "train2014",
+    "test" : "val2014"
+  },
+  "path" : {
+    "questions" : "{}/Questions/{}{}_{}_{}_questions.json",
+    "answers" : "{}/Annotations/{}{}_{}_annotations.json",
+    "images" : "{}/Images/{}/"
+  }
+}

@@ -6,12 +6,11 @@ root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
 from models.bert import model
-from loaders.vqa import *
+from helpers.dataset import *
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
 import torch
-from pytorch_transformers import BertConfig
 from pytorch_transformers import BertTokenizer
 import random
 
