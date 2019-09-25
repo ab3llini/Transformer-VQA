@@ -24,7 +24,7 @@ batch_size = 64
 epochs = 10
 logging_interval = 50
 learning_rate = 5e-5
-dataset_usage = 0.5
+dataset_usage = 0.05
 
 # Objects
 model = model.Model()
