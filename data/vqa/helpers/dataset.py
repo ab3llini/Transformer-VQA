@@ -60,7 +60,6 @@ class Sample:
                 len(self.sequence) - (len(self.tkn_question) + 2))
 
     def __str__(self):
-        io.imshow(io.imread(get_image_path(self.image_id)))
         io.show()
         return 'Question: {}' \
                '\nAnswer:{}' \

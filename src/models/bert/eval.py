@@ -12,27 +12,36 @@ import torch
 import random
 from models.bert import model
 from helpers.dataset import *
+from pytorch_transformers import BertTokenizer
+
 
 # Load the model
 model = torch.load('checkpoints/bert_vgg_DS%_0.5_B_64_LR_5e-05_CHKP_EPOCH_2.h5')
 
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+decode = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
+
 # Load some data (seed to replicate experiments)
 seed = random.seed(555)
 dataset = VQADataset(fname='bert_vgg_padded_types_dataset.pk')
-sample = dataset[random.randint(0, len(dataset))]
+idx = random.randint(0, len(dataset))
 
-# Print the sample
-print(sample)
+print(dataset.samples[idx])
 
 # Hardware
 device = torch.cuda.current_device()
 model.to(device)
 
-''' Evaluate the model
+question = torch.tensor(dataset.samples[idx].tkn_question).unsqueeze(0).to(device)
+answer = dataset.samples[idx].answer
+image = dataset[idx][4].unsqueeze(0).to(device)
+att_mask = torch.tensor([1] * len(dataset.samples[idx].tkn_question)).unsqueeze(0).to(device)
+
+# Print the sample
+print(sample)
+
+
+# Evaluate the model
 with torch.no_grad():
-    # Accessing batch objects and moving them to the computing device
-    question = sample[0].to(device)
-    token_ids = sample[1].to(device)
-    token_type_ids = sample[2].to(device)
-    attention_mask = sample[3].to(device)
-    images = sample[4].to(device)'''
+    out = model(question, None, att_mask, image)
+    print(tokenizer.decode(torch.argmax(out[0], dim=1).tolist()))

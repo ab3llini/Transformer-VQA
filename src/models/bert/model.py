@@ -102,7 +102,10 @@ class Model(nn.Module):
 
     def forward(self, token_ids, token_type_ids, attenton_mask, images):
 
-        language_model_out = self.language_model(token_ids, token_type_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)
+        if token_type_ids is not None:
+            language_model_out = self.language_model(token_ids, token_type_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)
+        else:
+            language_model_out = self.language_model(token_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)
         image_encoder_out = self.image_encoder(images)  # (batch_size, 7, 7, encoder_dim)
 
         batch_size = image_encoder_out.size(0)
