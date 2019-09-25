@@ -30,7 +30,7 @@ class VQALoader:
 
         self.q = self.p['q'].format(self.dir, self.v, self.t,  self.d, self.o)
         self.a = self.p['a'].format(self.dir, self.v, self.d, self.o)
-        self.i = self.p['i'].format(self.dir, self.v, self.o)
+        self.i = self.p['i'].format(self.dir, self.o)
 
     def load(self):
         return VQA(self.a, self.q)

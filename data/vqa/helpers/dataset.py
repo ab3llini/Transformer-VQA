@@ -22,7 +22,7 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 tokenize = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
 
-get_image_path = lambda _dir, _task, _id: _dir + _task + '/' + 'COCO_' + _task + '_' + str(_id).zfill(12) + '.jpg'
+get_image_path = lambda _dir, _task, _id: _dir + 'COCO_' + _task + '_' + str(_id).zfill(12) + '.jpg'
 
 
 # High level representation of a sample
