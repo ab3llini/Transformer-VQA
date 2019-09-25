@@ -202,13 +202,13 @@ class VQADataset(Dataset):
 
         return tkn_question + tkn_answer + ([padding_token] * padl), mask
 
-    def save(self, fname='samples.pk'):
-        with open(os.path.join(this_path, fname), 'wb') as fd:
+    def save(self, fname='dataset.pk'):
+        with open(os.path.join(this_path, '../datasets/' + fname), 'wb') as fd:
             pickle.dump(self.samples, fd)
 
-    def load(self, fname='samples.pk'):
+    def load(self, fname='dataset.pk'):
         try:
-            with open(os.path.join(this_path, fname), 'rb') as fd:
+            with open(os.path.join(this_path, '../datasets/' + fname), 'rb') as fd:
                 self.samples = pickle.load(fd)
             return True
         except (OSError, IOError) as e:
