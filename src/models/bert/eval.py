@@ -38,7 +38,6 @@ image = dataset[idx][4].unsqueeze(0).to(device)
 att_mask = torch.tensor([1] * len(dataset.samples[idx].tkn_question)).unsqueeze(0).to(device)
 
 # Print the sample
-print(sample)
 
 
 # Evaluate the model

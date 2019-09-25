@@ -68,7 +68,7 @@ class LanguageModel(nn.Module):
             param.requires_grad = False
 
     # Standard forward, make sure to prepare inputs properly
-    def forward(self, token_ids, token_type_ids, attention_mask):
+    def forward(self, token_ids, token_type_ids, attention_mask=None):
         return self.bert(token_ids, token_type_ids, attention_mask)[0]  # (batch_size, n_tokens, bert_size)
 
 
