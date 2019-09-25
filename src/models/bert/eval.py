@@ -22,7 +22,7 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 decode = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
 # Load some data (seed to replicate experiments)
-seed = random.seed(555)
+seed = random.seed(867)
 dataset = VQADataset(fname='bert_vgg_padded_types_dataset.pk')
 idx = random.randint(0, len(dataset))
 
@@ -32,15 +32,31 @@ print(dataset.samples[idx])
 device = torch.cuda.current_device()
 model.to(device)
 
-question = torch.tensor(dataset.samples[idx].tkn_question).unsqueeze(0).to(device)
-answer = dataset.samples[idx].answer
+
 image = dataset[idx][4].unsqueeze(0).to(device)
-att_mask = torch.tensor([1] * len(dataset.samples[idx].tkn_question)).unsqueeze(0).to(device)
+answer = dataset.samples[idx].answer
 
-# Print the sample
+while True:
 
+    question = input('Question: ')
+    question = '[CLS] ' + question + ' [SEP]'
+    _input = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(question))
+    input_type_ids = [1] * len(_input)
+    att_mask = [1] * len(_input)
 
-# Evaluate the model
-with torch.no_grad():
-    out = model(question, None, att_mask, image)
-    print(tokenizer.decode(torch.argmax(out[0], dim=1).tolist()))
+    next = 0
+    limit = 15
+    c = 0
+    # Evaluate the model
+    with torch.no_grad():
+        while next != tokenizer.sep_token_id and c < limit:
+            out = model(torch.tensor(_input).unsqueeze(0).to(device), torch.tensor(input_type_ids).unsqueeze(0).to(device), torch.tensor(att_mask).unsqueeze(0).to(device), image)
+
+            preds = torch.argmax(out[0], dim=1).tolist()
+            next = preds[-1]
+            _input += [next]
+            input_type_ids += [0]
+            att_mask += [1]
+            c += 1
+
+    print(tokenizer.decode(_input))
