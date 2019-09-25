@@ -1,3 +1,9 @@
+import sys
+import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
+
 import json
 from os.path import dirname, abspath
 from helpers.vqa import *
@@ -6,7 +12,7 @@ from helpers.vqa import *
 class VQALoader:
     def __init__(self, version='train'):
 
-        with open('structure.json') as fp:
+        with open(os.path.join(this_path, 'structure.json')) as fp:
             structure = json.load(fp)
 
         self.dir = dirname(dirname(abspath(__file__)))
