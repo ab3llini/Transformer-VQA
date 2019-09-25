@@ -6,7 +6,6 @@ root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 sys.path.append('/BlindLess/data/vqa/PythonHelperTools')
 
-
 import os
 from helpers.vqa import VQA
 from tqdm import tqdm
@@ -23,7 +22,7 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 tokenize = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
 
-get_image_path = lambda image_id: imgDir + 'COCO_' + dataSubType + '_' + str(image_id).zfill(12) + '.jpg'
+get_image_path = lambda _dir, _task, _id: _dir + 'COCO_' + _task + '_' + str(_id).zfill(12) + '.jpg'
 
 
 # High level representation of a sample
@@ -84,12 +83,12 @@ class Sample:
     def __len__(self):
         return len(self.tkn_question) + len(self.tkn_answer) if self.sequence is None else len(self.sequence)
 
-    def get_sample(self):
+    def get_sample(self, vqa_loader):
         return self.masked_sequence, \
                self.sequence, \
                self.token_type_ids, \
                self.attention_mask, \
-               Image.open(get_image_path(self.image_id))
+               Image.open(get_image_path(vqa_loader.i, vqa_loader.t ,self.image_id))
 
 
 class VQADataset(Dataset):
@@ -105,6 +104,7 @@ class VQADataset(Dataset):
         self.samples = []
         self.tokenizer = tokenizer
         self.task = task
+        self.vqa_loader = VQALoader(version=task)
 
         if not rebuild:
             print("Looking for cached samples named '{}'".format(fname))
@@ -128,7 +128,7 @@ class VQADataset(Dataset):
     def build(self, limit):
 
         # Load VQA helpers and create indexes
-        vqa = VQALoader(version=self.task).load()
+        vqa = self.vqa_loader.load()
 
         # Get QA instances
         qa = vqa.loadQA(vqa.getQuesIds())
@@ -237,7 +237,7 @@ class VQADataset(Dataset):
 
     def __getitem__(self, item):
         sample = self.samples[item]
-        token_ids_masked, token_ids, token_type_ids, att_mask, img = sample.get_sample()
+        token_ids_masked, token_ids, token_type_ids, att_mask, img = sample.get_sample(self.vqa_loader)
         return torch.tensor(token_ids_masked), \
                torch.tensor(token_ids), \
                torch.tensor(token_type_ids), \
