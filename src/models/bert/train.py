@@ -15,7 +15,6 @@ from pytorch_transformers import BertTokenizer
 import random
 
 
-
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 decode = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
