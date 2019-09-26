@@ -6,7 +6,9 @@ root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
 from models.bert import model
-from helpers.dataset import *
+from utilities.paths import *
+from utilities.vqa.dataset import *
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
@@ -14,25 +16,29 @@ import torch
 from pytorch_transformers import BertTokenizer
 import random
 
-
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 decode = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
 # Settings
+model_name = 'bert_vgg_1M'
 batch_size = 64
 epochs = 10
 logging_interval = 50
 learning_rate = 5e-5
-dataset_usage = 0.05
+n_prediction_samples = 3
+prediction_file_name = resources_path('models', 'bert', 'train_predictions', model_name + '.txt')
+
+# Debugging
+debug_fp = open(prediction_file_name, 'w+')
+
 
 # Objects
 model = model.Model()
-dataset = VQADataset('bert_vgg_padded_types_dataset.pk')
-print(dataset.samples[random.randint(0, 2000000)])
-loader = DataLoader(dataset=dataset, shuffle=True, batch_size=batch_size, pin_memory=True)
+tr_dataset = BertDataset(directory=resources_path('models', 'bert', 'data'), name='tr_bert_1M.pk')
+loader = DataLoader(dataset=tr_dataset, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=6)
 optimizer = Adam(model.parameters(), lr=learning_rate)
 cross_entropy = CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-writer = SummaryWriter()
+writer = SummaryWriter(log_dir=resources_path('models', 'bert', 'runs'))
 
 # Hardware
 device = torch.cuda.current_device()
@@ -41,14 +47,8 @@ model.to(device)
 # Initialize the model
 model.zero_grad()
 
-# Reduce the dataset
-if dataset_usage < 1:
-    print('Dataset usage set to to {}%'.format(dataset_usage * 100))
-    print('Shuffling before reducing..')
-    random.shuffle(dataset.samples)
-    print('Reducing..')
-    dataset.samples = dataset.samples[:int(len(dataset.samples) * dataset_usage)]
-    print('Done. Total samples = {}'.format(len(dataset.samples)))
+# Progress
+global_step = 0
 
 
 def loss_fn(output, labels):
@@ -63,40 +63,41 @@ def loss_fn(output, labels):
     return cross_entropy(output, labels)
 
 
-iterations = tqdm(loader, desc='Iterating w/ batch size = {}'.format(batch_size))
-
-
 # Training loop
 for epoch in range(epochs):
+
+    iterations = tqdm(loader)
+
     for it, batch in enumerate(iterations):
 
         # Accessing batch objects and moving them to the computing device
-        token_ids_masked = batch[0].to(device)
-        token_ids = batch[1].to(device)
-        token_type_ids = batch[2].to(device)
-        attention_mask = batch[3].to(device)
-        images = batch[4].to(device)
+        sequences = batch[1].to(device)
+        images = batch[2].to(device)
+        token_type_ids = batch[3].to(device)
+        attention_masks = batch[4].to(device)
 
         # Computing model output
-        out = model(token_ids_masked, token_type_ids, attention_mask, images)
+        out = model(sequences, token_type_ids, attention_masks, images)
 
         # Compute the loss
-        loss = loss_fn(out, token_ids)
+        loss = loss_fn(out, sequences)
         loss.backward()
         optimizer.step()
-        model.zero_grad()
+        optimizer.zero_grad()
 
         if it % logging_interval == 0:
-            for s in range(4):
-                print('\nSome predictions..')
-                print('Masked input  = ', tokenizer.decode(token_ids_masked[s].tolist()))
-                print('Output = ', tokenizer.decode(torch.argmax(out[s], dim=1).tolist()))
-                print('Ground truth  = ', tokenizer.decode(token_ids[s].tolist()))
+            for s in range(n_prediction_samples):
+                debug_fp.write('*' * 25 + '\n')
+                debug_fp.write('Epoch {} - Iteration {}'.format(epoch, it) + '\n')
+                debug_fp.write('Input = {}\n'.format(tokenizer.decode(sequences[s].tolist())))
+                debug_fp.write('Output = {}\n'.format(tokenizer.decode(torch.argmax(out[s], dim=1).tolist())))
 
-
-        # Print
+        # Visual debug of progress
         iterations.set_description('Epoch : {}/{} - Loss: {}'.format(epoch + 1, epochs, loss.item()))
-        writer.add_scalar('Loss/train', loss.item(), it)
+        writer.add_scalar('Loss/train', loss.item(), global_step)
 
-    torch.save(model,
-               'bert_vgg_DS%_{}_B_{}_LR_{}_CHKP_EPOCH_{}.h5'.format(dataset_usage, batch_size, learning_rate, epoch))
+        global_step += 1
+
+    model.save_state_dict(resources_path('models', 'bert', 'checkpoints', '{}_B_{}_LR_{}_CHKP_EPOCH_{}.pt'.format(model_name, batch_size, learning_rate, epoch)))
+
+
