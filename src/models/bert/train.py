@@ -40,7 +40,7 @@ def test(m, epoch, debug_fp, writer):
     print('Evaluating model.')
     total_loss = 0
     total_batches = 0
-    ts_loader = DataLoader(dataset=ts_dataset, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=6)
+    ts_loader = DataLoader(dataset=ts_dataset, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=4)
     with torch.no_grad():
         for it, batch in enumerate(tqdm(ts_loader)):
             # Accessing batch objects and moving them to the computing device
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     tr_dataset = BertDataset(directory=resources_path('models', 'bert', 'data'), name='tr_bert_1M.pk')
     ts_dataset = BertDataset(directory=resources_path('models', 'bert', 'data'), name='ts_bert_1M.pk', maxlen=2000)
 
-    tr_loader = DataLoader(dataset=tr_dataset, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=6)
+    tr_loader = DataLoader(dataset=tr_dataset, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=2)
 
     optimizer = Adam(model.parameters(), lr=learning_rate)
     cross_entropy = CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
