@@ -276,12 +276,13 @@ class BertDataset(Dataset):
     """
     This is a dataset specifically crafted for BERT models
     """
-    def __init__(self, directory, name):
+    def __init__(self, directory, name, maxlen=None):
         try:
             with open(os.path.join(directory, name), 'rb') as fd:
                 self.data = pickle.load(fd)
             # Get image path
             _, _, self.i_path = get_data_paths()
+            self.maxlen = maxlen
             print('Data loaded successfully.')
         except (OSError, IOError) as e:
             print('Unable to load data. Did you build it first?', str(e))
@@ -298,7 +299,7 @@ class BertDataset(Dataset):
         return identifier, sequence, image, token_types, att_mask
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data) if self.maxlen is None else self.maxlen
 
 
 if __name__ == '__main__':
