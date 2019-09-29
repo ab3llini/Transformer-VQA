@@ -100,7 +100,7 @@ class Model(nn.Module):
 
         print('Model parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
 
-    def forward(self, token_ids, token_type_ids, attenton_mask, images):
+    def forward(self, token_ids, images, token_type_ids, attenton_mask):
 
         if token_type_ids is not None:
             language_model_out = self.language_model(token_ids, token_type_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)

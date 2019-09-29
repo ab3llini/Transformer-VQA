@@ -4,144 +4,125 @@ import os
 this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
-sys.path.append('/home/alberto/PycharmProjects/BlindLess/data/vqa')
 
-print(root_path)
-
+from models.bert import model as bert_model
+from utilities.paths import *
+from utilities.vqa.dataset import *
+from torch.utils.data import DataLoader
+from models.bert import loss as bert_loss
 import torch
-import random
-from models.bert import model
 from pytorch_transformers import BertTokenizer
-from loaders.vqa import VQADataset
-from PIL import Image
-import collections
-import skimage.io as io
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-tokenize = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
+if __name__ == '__main__':
 
-this_path = os.path.dirname(os.path.realpath(__file__))
-src_path = os.path.abspath(os.path.join(this_path, os.pardir))
+    # Load model
+    print('Loading model..')
+    model = bert_model.Model()
+    model.load_state_dict(
+        torch.load(resources_path('models', 'bert', 'checkpoints', 'bert_vgg_1M_B_64_LR_5e-05_CHKP_EPOCH_3.pth')))
 
-dataDir = os.path.join(src_path, '../../data/vqa')
-versionType = 'v2_'  # this should be '' when using VQA v2.0 dataset
-taskType = 'OpenEnded'  # 'OpenEnded' only for v2.0. 'OpenEnded' or 'MultipleChoice' for v1.0
-dataType = 'mscoco'  # 'mscoco' only for v1.0. 'mscoco' for real and 'abstract_v002' for abstract for v1.0.
-dataSubType = 'train2014'
-annFile = '%s/Annotations/%s%s_%s_annotations.json' % (dataDir, versionType, dataType, dataSubType)
-quesFile = '%s/Questions/%s%s_%s_%s_questions.json' % (dataDir, versionType, taskType, dataType, dataSubType)
-imgDir = '%s/Images/%s/' % (dataDir, dataSubType)
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    decode = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
-image_path = lambda image_id: imgDir + 'COCO_' + dataSubType + '_' + str(image_id).zfill(12) + '.jpg'
+    # Hardware
+    device = torch.cuda.current_device()
+    model.to(device)
 
+    # Data
+    batch_size = 64
+    ts_dataset = BertDataset(directory=resources_path('models', 'bert', 'data'), name='ts_bert_1M.pk')
+    ts_loader = DataLoader(dataset=ts_dataset, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=2)
 
-# High level representation of a sample
-class Sample:
-    def __init__(self, _id, question, answer, image_id):
-        self._id = _id
-        self.question = question
-        self.answer = answer
-        self.image_id = image_id
-        self.tkn_question = [tokenizer.cls_token_id] + tokenize(question) + [tokenizer.sep_token_id]
-        self.tkn_answer = tokenize(answer) + [tokenizer.sep_token_id]
-        self.sequence = None  # The input to the model
-        self.masked_sequence = None
-        self.token_type_ids = None  # 0 are the question, 1 the answer
-        self.attention_mask = None  # 1 are NOT padding tokens, 0 are padding tokens
+    mode = input('Automatic or Interactive mode? [a/i]: ')
+    if mode == 'a':
+        # Automatic evaluation
+        iterations = tqdm(ts_loader)
+        total_loss = 0
 
-    def mask_sequence(self):
-        start_mask = len(self.tkn_question)
-        end_mask = start_mask + len(self.tkn_answer) - 1  # -1 do not account for last sep
-        self.masked_sequence = self.sequence.copy()
-        self.masked_sequence[start_mask:end_mask] = [tokenizer.mask_token_id] * (end_mask - start_mask)
+        # Deactivate back propagation
+        with torch.no_grad():
+            for it, batch in enumerate(iterations):
+                # Accessing batch objects and moving them to the computing device
+                sequences = batch[1].to(device)
+                images = batch[2].to(device)
+                token_type_ids = batch[3].to(device)
+                attention_masks = batch[4].to(device)
 
-        assert len(self.masked_sequence) == len(self.sequence)
+                # Computing model output
+                out = model(sequences, token_type_ids, attention_masks, images)
 
-    def get_pad_start_index(self):
-        return 1 + len(self.tkn_question) + 1 + len(self.tkn_answer) + 1
+                # Compute the loss
+                loss = bert_loss.loss_fn(out, sequences)
+                total_loss += loss
 
-    def pad_sequence(self, to_size):
-        padded, mask = VQADataset.pad_sequence(self.tkn_question, self.tkn_answer, to_size, tokenizer.pad_token_id)
-        self.sequence = padded
-        self.attention_mask = mask
+                iterations.set_description('Test loss: {}'.format(loss.item()))
 
-    def compute_token_type_ids(self):
-        self.token_type_ids = [0] * (len(self.tkn_question) + 2) + [1] * (
-                len(self.sequence) - (len(self.tkn_question) + 2))
+            print('Total test loss (averaged) = {}'.format(total_loss / len(iterations)))
 
-    def __str__(self):
-        io.imshow(io.imread(image_path(self.image_id)))
-        io.show()
-        return 'Question: {}' \
-               '\nAnswer:{}' \
-               '\nTokenized Question: {}' \
-               '\nTokenized Answer: {}' \
-               '\nSequence: {}' \
-               '\nMasked sequence: {}' \
-               '\nPadding mask: {}' \
-               '\nTypes: {}\n ' \
-               'Image: {}'.format(self.question,
-                                  self.answer,
-                                  self.tkn_question,
-                                  self.tkn_answer,
-                                  self.sequence,
-                                  self.masked_sequence,
-                                  self.attention_mask,
-                                  self.token_type_ids,
-                                  self.image_id)
+    else:
 
-    def __len__(self):
-        return len(self.tkn_question) + len(self.tkn_answer) if self.sequence is None else len(self.sequence)
+        selected_image = None
+        while selected_image is None:
+            random_idx = random.randint(0, len(ts_dataset))
+            random_sample = ts_dataset.data[random_idx]
+            print('Randomly selected this sample:\nSequence={}'.format(tokenizer.decode(random_sample[1])))
+            open_fp = ts_dataset.get_image(random_sample[2])
+            open_fp.show()
 
-    def get_sample(self):
-        return self.masked_sequence, \
-               self.sequence, \
-               self.token_type_ids, \
-               self.attention_mask, \
-               Image.open(image_path(self.image_id))
+            # Check for good sample
+            ok = input('Keep the current sample? [y/n]: ')
+            if ok == 'y':
+                stop = 'n'
+                while stop == 'n':
+                    question = input('Enter your question: ')
+                    question = [tokenizer.cls_token_id] + tokenizer.convert_tokens_to_ids(
+                        tokenizer.tokenize(question)) + [tokenizer.sep_token_id]
+                    input_type_ids = [0] * len(question)
+                    att_mask = [1] * len(question)
+                    selected_image = ts_dataset[random_idx][2].unsqueeze(0).to(device)
 
+                    generated_tokens = []
+                    last_full_output = None
+                    limit = 15
+                    last_token = -1
 
+                    with torch.no_grad():
+                        # Iterative model pooling
+                        while last_token not in tokenizer.all_special_ids and len(generated_tokens) <= limit:
+                            sequence_in = torch.tensor(question + generated_tokens).unsqueeze(0).to(device)
+                            input_type_ids_in = torch.tensor(input_type_ids).unsqueeze(0).to(device)
+                            att_mask_in = torch.tensor(att_mask).unsqueeze(0).to(device)
+                            out = model(sequence_in, input_type_ids_in, att_mask_in, selected_image)
 
-# Load the model
-model = torch.load('bert_vgg_DS%_0.5_B_64_LR_5e-05_CHKP_EPOCH_3.h5')
+                            # Get next predicted tokens. At the beginning is only one, then two, three..
+                            generated_tokens = torch.argmax(out[0, -len(generated_tokens) - 1:], dim=1).tolist()
 
+                            # Save last full output
+                            last_full_output = torch.argmax(out[0], dim=1).tolist()
 
-# Load some data (seed to replicate experiments)
-seed = random.seed(867)
-dataset = VQADataset(fname='bert_vgg_padded_types_dataset.pk')
-idx = random.randint(0, len(dataset))
+                            print('Iteration {} -> Output = {} \n Generated tokens = {}'.format(len(generated_tokens),
+                                                                                                tokenizer.decode(
+                                                                                                    last_full_output),
+                                                                                                tokenizer.decode(
+                                                                                                    generated_tokens)))
 
-print(dataset.samples[idx])
+                            print(
+                                'Undecoded answer tokens {}'.format(tokenizer.convert_ids_to_tokens(generated_tokens)))
 
-# Hardware
-device = torch.cuda.current_device()
-model.to(device)
+                            input_type_ids.append(1)
+                            att_mask.append(1)
 
+                            last_token = generated_tokens[-1]
 
-image = dataset[idx][4].unsqueeze(0).to(device)
-answer = dataset.samples[idx].answer
+                        print('Model full output: {}'.format(tokenizer.decode(last_full_output)))
+                        print('Answer tokens: {}'.format(tokenizer.decode(generated_tokens)))
 
-while True:
-
-    question = input('Question: ')
-    question = '[CLS] ' + question + ' [SEP]'
-    _input = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(question))
-    input_type_ids = [1] * len(_input)
-    att_mask = [1] * len(_input)
-
-    next = 0
-    limit = 15
-    c = 0
-    # Evaluate the model
-    with torch.no_grad():
-        while next != tokenizer.sep_token_id and c < limit:
-            out = model(torch.tensor(_input).unsqueeze(0).to(device), torch.tensor(input_type_ids).unsqueeze(0).to(device), torch.tensor(att_mask).unsqueeze(0).to(device), image)
-
-            preds = torch.argmax(out[0], dim=1).tolist()
-            next = preds[-1]
-            _input += [next]
-            input_type_ids += [0]
-            att_mask += [1]
-            c += 1
-
-    print(tokenizer.decode(_input))
+                    stop = input('Change image? [y/n (default)]: ')
+                    if stop != 'y':
+                        stop = 'n'
+                    else:
+                        open_fp.close()
+                        selected_image = None
+            else:
+                open_fp.close()
+                continue

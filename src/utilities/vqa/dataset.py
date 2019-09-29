@@ -287,12 +287,15 @@ class BertDataset(Dataset):
         except (OSError, IOError) as e:
             print('Unable to load data. Did you build it first?', str(e))
 
+    def get_image(self, image_id):
+        return load_image(self.i_path, image_id)
+
     def __getitem__(self, item):
         sample = self.data[item]
 
         identifier = sample[0]
         sequence = torch.tensor(sample[1]).long()
-        image = transform_image(load_image(self.i_path, sample[2]))
+        image = transform_image(self.get_image(sample[2]))
         token_types = torch.tensor(sample[3]).long()
         att_mask = torch.tensor(sample[4]).long()
 
