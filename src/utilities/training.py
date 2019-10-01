@@ -111,6 +111,8 @@ class Trainer:
 
         self.global_step = 0
 
+        print('\nTraining model..')
+
         for epoch in range(self.epochs):
 
             iterations = tqdm(self.tr_loader)
