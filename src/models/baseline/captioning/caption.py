@@ -1,3 +1,11 @@
+import sys
+import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir))
+sys.path.append(root_path)
+
+from utilities.paths import *
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -7,13 +15,14 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import skimage.transform
 import argparse
-from scipy.misc import imread, imresize
+from utilities.vqa.dataset import *
 from PIL import Image
+from models.baseline.captioning.datasets import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=3):
+def caption_image_beam_search(encoder, decoder, image, word_map, beam_size=3):
     """
     Reads an image and captions it with beam search.
 
@@ -27,20 +36,6 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
 
     k = beam_size
     vocab_size = len(word_map)
-
-    # Read image and process
-    img = imread(image_path)
-    if len(img.shape) == 2:
-        img = img[:, :, np.newaxis]
-        img = np.concatenate([img, img, img], axis=2)
-    img = imresize(img, (256, 256))
-    img = img.transpose(2, 0, 1)
-    img = img / 255.
-    img = torch.FloatTensor(img).to(device)
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    transform = transforms.Compose([normalize])
-    image = transform(img)  # (3, 256, 256)
 
     # Encode
     image = image.unsqueeze(0)  # (1, 3, 256, 256)
@@ -186,18 +181,16 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Show, Attend, and Tell - Tutorial - Generate Caption')
+    ts_dataset = CaptionDataset(directory=resources_path('models', 'baseline', 'captioning', 'data'),
+                                name='ts_cpi_5_captioning', split='test')
 
-    parser.add_argument('--img', '-i', help='path to image')
-    parser.add_argument('--model', '-m', help='path to model')
-    parser.add_argument('--word_map', '-wm', help='path to word map JSON')
-    parser.add_argument('--beam_size', '-b', default=5, type=int, help='beam size for beam search')
-    parser.add_argument('--dont_smooth', dest='smooth', action='store_false', help='do not smooth alpha overlay')
 
-    args = parser.parse_args()
+
+    beam_size = 5
 
     # Load model
-    checkpoint = torch.load(args.model)
+    checkpoint = torch.load(
+        resources_path('models', 'baseline', 'captioning', 'checkpoints', 'BEST_checkpoint_captioning.pth.tar'))
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -206,13 +199,22 @@ if __name__ == '__main__':
     encoder.eval()
 
     # Load word map (word2ix)
-    with open(args.word_map, 'r') as j:
+    with open(resources_path('models', 'baseline', 'captioning', 'data', 'WORDMAP_cpi_5_captioning.json'),
+              'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
-    # Encode, decode with attention and beam search
-    seq, alphas = caption_image_beam_search(encoder, decoder, args.img, word_map, args.beam_size)
-    alphas = torch.FloatTensor(alphas)
+    pred = None
+    while pred is None or pred in ['yes', 'no', '<unk>', '<pad>']:
+        idx = random.randint(0, len(ts_dataset))
+        sample = ts_dataset[idx]
+        tensor_image = sample[2].to(device)
+        image = get_image_path(get_data_paths(data_type='test')[2], ts_dataset.data[idx][2])
+        # Encode, decode with attention and beam search
+        seq, alphas = caption_image_beam_search(encoder, decoder, tensor_image, word_map, beam_size)
+        alphas = torch.FloatTensor(alphas)
 
-    # Visualize caption and attention of best sequence
-    visualize_att(args.img, seq, alphas, rev_word_map, args.smooth)
+        pred = rev_word_map[seq[1]]
+        if pred not in ['yes', 'no', '<unk>', '<pad>']:
+            # Visualize caption and attention of best sequence
+            visualize_att(image, seq, alphas, rev_word_map)

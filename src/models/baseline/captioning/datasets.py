@@ -7,13 +7,6 @@ sys.path.append(root_path)
 
 
 from collections import Counter
-import torch
-from torch.utils.data import Dataset
-import h5py
-import json
-import os
-from utilities.paths import *
-from utilities.vqa.vqa import *
 from utilities.vqa.dataset import *
 import nltk
 
@@ -146,7 +139,7 @@ def build_dataset(name, directory, captions_per_image=5, min_word_freq=50, max_l
     for sample, padded_seq in zip(selected_tr, padded_seqs):
         sample[1] = padded_seq
 
-    padded_seqs = pad_sequences(selected_ts[:, 1], maxlen=longest_sequence_tr[0], padding='post',
+    padded_seqs = pad_sequences(selected_ts[:, 1], maxlen=longest_sequence_ts[0], padding='post',
                                 value=int(word_map['<pad>']))
     for sample, padded_seq in zip(selected_ts, padded_seqs):
         sample[1] = padded_seq

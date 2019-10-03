@@ -37,6 +37,14 @@ def load_image(base_path, image_id):
     """
     return Image.open(base_path + str(image_id).zfill(12) + '.jpg')
 
+def get_image_path(base_path, image_id):
+    """
+    :param base_path: image base path. Returned by get_data_paths
+    :param image_id: image id
+    :return: PIL image
+    """
+    return base_path + str(image_id).zfill(12) + '.jpg'
+
 
 def transform_image(image, size=224):
     """
@@ -111,6 +119,10 @@ def get_data_paths(data_type='train'):
     i = p['i'].format(data_dir, o, o)
 
     return q, a, i
+
+
+def get_question_ids_from(dataset):
+    return np.array(dataset.data)[:, 0]
 
 
 def dump_selected(selected, directory, name, tr_split):
