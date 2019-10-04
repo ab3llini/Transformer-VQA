@@ -194,12 +194,12 @@ class BertDataset(Dataset):
     This is a dataset specifically crafted for BERT models
     """
 
-    def __init__(self, directory, name, maxlen=None):
+    def __init__(self, directory, name, maxlen=None, split='train'):
         try:
             with open(os.path.join(directory, name), 'rb') as fd:
                 self.data = pickle.load(fd)
             # Get image path
-            _, _, self.i_path = get_data_paths()
+            _, _, self.i_path = get_data_paths(data_type=split)
             self.maxlen = maxlen if maxlen is not None else len(self.data)
             print('Data loaded successfully.')
         except (OSError, IOError) as e:

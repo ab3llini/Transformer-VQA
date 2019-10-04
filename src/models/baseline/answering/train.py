@@ -41,7 +41,7 @@ if __name__ == '__main__':
     tr_dataset = BertDataset(directory=resources_path(model_basepath, 'data'),
                              name='tr_bert_answering')
     ts_dataset = BertDataset(directory=resources_path(model_basepath, 'data'),
-                             name='ts_bert_answering')
+                             name='ts_bert_answering', split='test')
 
     learning_rate = 5e-5
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         lr=learning_rate,
         batch_size=64,
         batch_extractor=lambda batch: [batch[1], batch[3], batch[4]],  # Get rid of the image
-        epochs=3,
+        epochs=5,
         tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs')),
         checkpoint_path=resources_path(model_basepath, 'checkpoints'),
         logging_fp=open(resources_path(model_basepath, 'predictions', 'train.txt'), 'w+'),
