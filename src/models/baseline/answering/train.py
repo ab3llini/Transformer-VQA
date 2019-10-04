@@ -54,12 +54,12 @@ if __name__ == '__main__':
         lr=learning_rate,
         batch_size=64,
         batch_extractor=lambda batch: [batch[1], batch[3], batch[4]],  # Get rid of the image
-        epochs=5,
+        epochs=3,
         tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs')),
         checkpoint_path=resources_path(model_basepath, 'checkpoints'),
         logging_fp=open(resources_path(model_basepath, 'predictions', 'train.txt'), 'w+'),
         logging_fn=bert_logging_fn,
-        logging_interval=5
+        logging_interval=10
     )
 
     bert_trainer.train()
