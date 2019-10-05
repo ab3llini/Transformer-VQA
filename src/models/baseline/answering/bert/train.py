@@ -26,7 +26,7 @@ def bert_logging_fn(out, batch, description):
 
 if __name__ == '__main__':
 
-    model_basepath = os.path.join('models', 'baseline', 'answering')
+    model_basepath = os.path.join('models', 'baseline', 'answering', 'bert')
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     decode = lambda text: tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
