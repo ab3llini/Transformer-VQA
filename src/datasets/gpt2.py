@@ -7,6 +7,14 @@ sys.path.append(root_path)
 
 from utilities.vqa.dataset import *
 from pytorch_transformers import GPT2Tokenizer, GPT2LMHeadModel
+from datasets.creator import QADatasetCreator
+
+
+class GPT2DatasetCreator(QADatasetCreator):
+    def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
+        super().__init__(tr_size, ts_size, generation_seed)
+
+
 
 
 def build_dataset(name, directory, tokenizer, tr_size=None, ts_size=None, q_len_range=None,
