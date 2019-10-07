@@ -21,6 +21,7 @@ import datetime
 import copy
 from tqdm import tqdm
 
+
 class VQA:
     def __init__(self, annotation_file=None, question_file=None):
         """
@@ -48,8 +49,8 @@ class VQA:
         # create index
         print('creating index...')
         imgToQA = {ann['image_id']: [] for ann in self.dataset['annotations']}
-        qa =  {ann['question_id']:       [] for ann in self.dataset['annotations']}
-        qqa = {ann['question_id']:       [] for ann in self.dataset['annotations']}
+        qa = {ann['question_id']: [] for ann in self.dataset['annotations']}
+        qqa = {ann['question_id']: [] for ann in self.dataset['annotations']}
         for ann in tqdm(self.dataset['annotations']):
             imgToQA[ann['image_id']] += [ann]
             qa[ann['question_id']] = ann
@@ -68,7 +69,7 @@ class VQA:
         :return:
         """
         for key, value in list(self.datset['info'].items()):
-            print('%s: %s'%(key, value))
+            print('%s: %s' % (key, value))
 
     def getQuesIds(self, imgIds=[], quesTypes=[], ansTypes=[]):
         """
@@ -78,19 +79,19 @@ class VQA:
                 ansTypes  (str array)   : get question ids for given answer types
         :return:    ids   (int array)   : integer array of question ids
         """
-        imgIds 	  = imgIds    if type(imgIds)    == list else [imgIds]
+        imgIds = imgIds if type(imgIds) == list else [imgIds]
         quesTypes = quesTypes if type(quesTypes) == list else [quesTypes]
-        ansTypes  = ansTypes  if type(ansTypes)  == list else [ansTypes]
+        ansTypes = ansTypes if type(ansTypes) == list else [ansTypes]
 
         if len(imgIds) == len(quesTypes) == len(ansTypes) == 0:
             anns = self.dataset['annotations']
         else:
             if not len(imgIds) == 0:
-                anns = sum([self.imgToQA[imgId] for imgId in imgIds if imgId in self.imgToQA],[])
+                anns = sum([self.imgToQA[imgId] for imgId in imgIds if imgId in self.imgToQA], [])
             else:
                 anns = self.dataset['annotations']
             anns = anns if len(quesTypes) == 0 else [ann for ann in anns if ann['question_type'] in quesTypes]
-            anns = anns if len(ansTypes)  == 0 else [ann for ann in anns if ann['answer_type'] in ansTypes]
+            anns = anns if len(ansTypes) == 0 else [ann for ann in anns if ann['answer_type'] in ansTypes]
         ids = [ann['question_id'] for ann in anns]
         return ids
 
@@ -102,19 +103,19 @@ class VQA:
                ansTypes  (str array)   : get image ids for given answer types
         :return: ids     (int array)   : integer array of image ids
         """
-        quesIds   = quesIds   if type(quesIds)   == list else [quesIds]
+        quesIds = quesIds if type(quesIds) == list else [quesIds]
         quesTypes = quesTypes if type(quesTypes) == list else [quesTypes]
-        ansTypes  = ansTypes  if type(ansTypes)  == list else [ansTypes]
+        ansTypes = ansTypes if type(ansTypes) == list else [ansTypes]
 
         if len(quesIds) == len(quesTypes) == len(ansTypes) == 0:
             anns = self.dataset['annotations']
         else:
             if not len(quesIds) == 0:
-                anns = sum([self.qa[quesId] for quesId in quesIds if quesId in self.qa],[])
+                anns = sum([self.qa[quesId] for quesId in quesIds if quesId in self.qa], [])
             else:
                 anns = self.dataset['annotations']
             anns = anns if len(quesTypes) == 0 else [ann for ann in anns if ann['question_type'] in quesTypes]
-            anns = anns if len(ansTypes)  == 0 else [ann for ann in anns if ann['answer_type'] in ansTypes]
+            anns = anns if len(ansTypes) == 0 else [ann for ann in anns if ann['answer_type'] in ansTypes]
         ids = [ann['image_id'] for ann in anns]
         return ids
 
@@ -139,9 +140,9 @@ class VQA:
             return 0
         for ann in anns:
             quesId = ann['question_id']
-            print("Question: %s" %(self.qqa[quesId]['question']))
+            print("Question: %s" % (self.qqa[quesId]['question']))
             for ans in ann['answers']:
-                print("Answer %d: %s" %(ans['answer_id'], ans['answer']))
+                print("Answer %d: %s" % (ans['answer_id'], ans['answer']))
 
     def loadRes(self, resFile, quesFile):
         """
@@ -159,20 +160,21 @@ class VQA:
 
         print('Loading and preparing results...     ')
         time_t = datetime.datetime.utcnow()
-        anns    = json.load(open(resFile))
+        anns = json.load(open(resFile))
         assert type(anns) == list, 'results is not an array of objects'
         annsQuesIds = [ann['question_id'] for ann in anns]
         assert set(annsQuesIds) == set(self.getQuesIds()), \
             'Results do not correspond to current VQA set. Either the results do not have predictions for all question ids in annotation file or there is atleast one question id that does not belong to the question ids in the annotation file.'
         for ann in anns:
-            quesId 			     = ann['question_id']
+            quesId = ann['question_id']
             if res.dataset['task_type'] == 'Multiple Choice':
-                assert ann['answer'] in self.qqa[quesId]['multiple_choices'], 'predicted answer is not one of the multiple choices'
-            qaAnn                = self.qa[quesId]
-            ann['image_id']      = qaAnn['image_id']
+                assert ann['answer'] in self.qqa[quesId][
+                    'multiple_choices'], 'predicted answer is not one of the multiple choices'
+            qaAnn = self.qa[quesId]
+            ann['image_id'] = qaAnn['image_id']
             ann['question_type'] = qaAnn['question_type']
-            ann['answer_type']   = qaAnn['answer_type']
-        print('DONE (t=%0.2fs)'%((datetime.datetime.utcnow() - time_t).total_seconds()))
+            ann['answer_type'] = qaAnn['answer_type']
+        print('DONE (t=%0.2fs)' % ((datetime.datetime.utcnow() - time_t).total_seconds()))
 
         res.dataset['annotations'] = anns
         res.createIndex()

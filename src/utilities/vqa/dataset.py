@@ -7,16 +7,10 @@ sys.path.append(root_path)
 
 from utilities.paths import *
 from utilities.vqa.vqa import *
-from pytorch_transformers import BertTokenizer
-import torch
-from torch.utils.data import Dataset
 import pickle
 from torchvision import transforms
 from PIL import Image
-import random
-import skimage.io as io
 import numpy as np
-from keras.preprocessing.sequence import pad_sequences
 
 
 def embed(tokenizer, text):
@@ -36,6 +30,7 @@ def load_image(base_path, image_id):
     :return: PIL image
     """
     return Image.open(base_path + str(image_id).zfill(12) + '.jpg')
+
 
 def get_image_path(base_path, image_id):
     """
