@@ -49,7 +49,7 @@ def train():
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=lambda out, batch: bert_loss.loss_fn(out[0], batch[0]),
         lr=learning_rate,
-        batch_size=64,
+        batch_size=128,
         batch_extractor=lambda batch: batch[1:-1],  # Get rid of id & seq length
         epochs=3,
         tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs')),

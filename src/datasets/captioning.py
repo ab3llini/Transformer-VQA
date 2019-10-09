@@ -113,7 +113,7 @@ class CaptionDataset(Dataset):
 def create():
     nltk.download('punkt')
     destination = resources_path('models', 'baseline', 'captioning', 'data')
-    dsc = CaptioningDatasetCreator(destination, generation_seed=555)
+    dsc = CaptioningDatasetCreator(destination, tr_size=1000000, ts_size=100000, generation_seed=555)
     dsc.create(destination)
 
 

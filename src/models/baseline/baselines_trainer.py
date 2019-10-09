@@ -30,18 +30,6 @@ MAP = {
 FILES = ['training.pk', 'testing.pk']
 
 
-def check():
-    a = GPT2Dataset(directory=paths.resources_path('models', 'baseline', 'answering', 'gpt2', 'data'),
-                    name='training.pk')
-    b = BertDataset(directory=paths.resources_path('models', 'baseline', 'answering', 'bert', 'data'),
-                    name='training.pk')
-    c = CaptionDataset(directory=paths.resources_path('models', 'baseline', 'captioning', 'data'),
-                       name='training.pk')
-
-    for aa, bb, cc in zip(a.data, b.data, c.data):
-        print('{} {} {}'.format(aa[0], bb[0], cc[0]))
-
-
 def train():
     # Check dataset exists otherwise create
     print('Stage 1: sanity check')
