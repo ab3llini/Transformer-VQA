@@ -1,4 +1,10 @@
+import sys
 import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir))
+sys.path.append(root_path)
+
 from models.baseline.captioning.train import train as captioning_train
 from models.baseline.answering.bert.train import train as bert_train
 from models.baseline.answering.gpt2.train import train as gpt2_train
