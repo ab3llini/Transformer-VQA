@@ -15,7 +15,7 @@ class Trainer:
                  batch_size=64,
                  batch_extractor=None,
                  epochs=10,
-                 device='cuda',
+                 device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
                  num_workers=2,
                  tensorboard=None,
                  checkpoint_path=None,

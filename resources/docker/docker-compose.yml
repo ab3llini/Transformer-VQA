@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  thesis:
+    image: ab3llini/thesis:latest
+    volumes:
+      - /home/alberto/PycharmProjects/OpenDomainVQA:/opt/project
+    shm_size: 60GB

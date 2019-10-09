@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torchvision import models
 import copy
-from pytorch_transformers import BertForMaskedLM, BertConfig
+from transformers import BertForMaskedLM, BertConfig
 
 
 class ImageEncoder(nn.Module):

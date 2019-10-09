@@ -12,7 +12,7 @@ from utilities.vqa.dataset import *
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from models.bert import loss as bert_loss
-from pytorch_transformers import BertTokenizer
+from transformers import BertTokenizer
 from models.bert.dataset import *
 
 

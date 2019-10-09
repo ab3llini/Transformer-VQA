@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 import torch
 from utilities.vqa.dataset import *
-from pytorch_transformers import BertTokenizer
+from transformers import BertTokenizer
 from datasets.creator import QADatasetCreator
 from torch.utils.data import Dataset
 
@@ -20,8 +20,6 @@ class BertDatasetCreator(QADatasetCreator):
             self.tokenizer = tokenizer
         else:
             self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-            self.tokenizer.add_special_tokens(
-                {'bos_token': '<bos>', 'eos_token': '<eos>', 'sep_token': '<sep>'})
 
     def embed_fn(self, text):
         """
@@ -35,17 +33,21 @@ class BertDatasetCreator(QADatasetCreator):
     def process(self, candidates_tr, candidates_ts):
         # Add tokens to separate Q & A
 
+        longest_tr, longest_ts = [0], [0]
+
         print('Processing..')
-        for candidates in [candidates_tr, candidates_ts]:
+        for candidates, longest in [[candidates_tr, longest_tr], [candidates_ts, longest_ts]]:
             for i, sample in tqdm(enumerate(candidates)):
+                if longest[0] < sample[self.tkn_a_len_idx] + sample[self.tkn_q_len_idx]:
+                    longest[0] = sample[self.tkn_a_len_idx] + sample[self.tkn_q_len_idx]
                 # Save some information
                 l_q = sample[self.tkn_q_len_idx] + 2  # + BOS & SEP
                 l_a = sample[self.tkn_a_len_idx] + 1  # + EOS
 
                 # Add BOS, SEP & EOS tokens
-                sample[self.tkn_q_idx] = [self.tokenizer.bos_token_id] + sample[self.tkn_q_idx] + [
+                sample[self.tkn_q_idx] = [self.tokenizer.cls_token_id] + sample[self.tkn_q_idx] + [
                     self.tokenizer.sep_token_id]
-                sample[self.tkn_a_idx] = sample[self.tkn_a_idx] + [self.tokenizer.eos_token_id]
+                sample[self.tkn_a_idx] = sample[self.tkn_a_idx] + [self.tokenizer.sep_token_id]
                 # Concatenate Q+A
                 sample[self.tkn_q_idx] += sample[self.tkn_a_idx]
                 # Compute sequence length
@@ -57,16 +59,18 @@ class BertDatasetCreator(QADatasetCreator):
                 sample[self.tkn_a_len_idx] = [1] * (l_q + l_a)  # Replacing answer len with pad mask
 
         # Pad sequences
-        self.pad_sequences(candidates_tr, axis=1, value=int(self.tokenizer.pad_token_id))
-        self.pad_sequences(candidates_ts, axis=1, value=int(self.tokenizer.pad_token_id))
+        candidates_tr = self.pad_sequences(candidates_tr, axis=1, value=int(self.tokenizer.pad_token_id),
+                                           maxlen=longest_tr[0])
+        candidates_ts = self.pad_sequences(candidates_ts, axis=1, value=int(self.tokenizer.pad_token_id),
+                                           maxlen=longest_ts[0])
 
         # Pad token type ids
-        self.pad_sequences(candidates_tr, axis=3, value=1)
-        self.pad_sequences(candidates_ts, axis=3, value=1)
+        candidates_tr = self.pad_sequences(candidates_tr, axis=3, value=1, maxlen=longest_tr[0])
+        candidates_ts = self.pad_sequences(candidates_ts, axis=3, value=1, maxlen=longest_ts[0])
 
         # Pad padding masks
-        self.pad_sequences(candidates_tr, axis=4, value=0)
-        self.pad_sequences(candidates_ts, axis=4, value=0)
+        candidates_tr = self.pad_sequences(candidates_tr, axis=4, value=0, maxlen=longest_tr[0])
+        candidates_ts = self.pad_sequences(candidates_ts, axis=4, value=0, maxlen=longest_ts[0])
 
         return candidates_tr, candidates_ts
 
@@ -99,16 +103,17 @@ class BertDataset(Dataset):
         token_types = torch.tensor(sample[3]).long()
         att_mask = torch.tensor(sample[4]).long()
 
-        return identifier, sequence, length, token_types, att_mask
+        return identifier, sequence, token_types, att_mask, length
 
     def __len__(self):
         return self.maxlen
 
 
-if __name__ == '__main__':
+def create():
     bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    bert_tokenizer.add_special_tokens(
-        {'bos_token': '<bos>', 'eos_token': '<eos>', 'sep_token': '<sep>'})
     destination = resources_path('models', 'baseline', 'answering', 'bert', 'data')
     dsc = BertDatasetCreator(tokenizer=bert_tokenizer, tr_size=1000000, ts_size=100000, generation_seed=555)
     dsc.create(destination)
+
+if __name__ == '__main__':
+    create()

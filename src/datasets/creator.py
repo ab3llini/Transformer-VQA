@@ -56,17 +56,23 @@ class DatasetCreator:
         """
 
         candidates_tr, candidates_ts = [], []
+        not_rgb = 0
 
         # We are working on Open Domain Answering systems
         # Hence we are interested in the longest answers (annotations) first
-        objects = [[self.qa_objects_tr, candidates_tr, self.vqa_helper_tr],
-                   [self.qa_objects_ts, candidates_ts, self.vqa_helper_ts]]
+        objects = [[self.qa_objects_tr, candidates_tr, self.vqa_helper_tr, self.i_path_tr],
+                   [self.qa_objects_ts, candidates_ts, self.vqa_helper_ts, self.i_path_ts]]
         print('Building auxiliary candidate structures..')
-        for qa_objects, candidates, vqa_helper in objects:
+        for qa_objects, candidates, vqa_helper, image_paths in objects:
+            # c = 0
+            # Skip if image is not RGB
             for qa_object in tqdm(qa_objects):
 
                 # Parse object
                 obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
+                if not check_rgb(image_paths, obj_i):
+                    not_rgb += 10
+                    continue
 
                 # Embed the question
                 q_embed, q_embed_len = self.embed_fn(obj_q)
@@ -87,6 +93,11 @@ class DatasetCreator:
 
                     # Add sample
                     candidates.append([obj_id, q_embed, q_embed_len, obj_i, prev_a_emb, prev_a_emb_len])
+                # if c > 100:
+                #     break
+                # else:
+                #     c += 1
+        print('Non RGB samples (removed) = {}'.format(not_rgb))
 
         candidates_tr, candidates_ts = np.array(candidates_tr), np.array(candidates_ts)
 
@@ -222,13 +233,15 @@ class DatasetCreator:
         return self.filter_candidates(*candidates)
 
     @staticmethod
-    def pad_sequences(candidates, axis, value):
+    def pad_sequences(candidates, axis, value, maxlen):
         if not isinstance(candidates, (np.ndarray, np.generic)):
             candidates = np.array(candidates)
         padded = k_preproc.sequence.pad_sequences(candidates[:, axis], padding='post',
-                                                  value=value)
+                                                  value=value, maxlen=maxlen)
         for sample, pad in zip(candidates, padded):
             sample[axis] = pad
+
+        return candidates
 
     def create(self, location):
         candidates = self.build()

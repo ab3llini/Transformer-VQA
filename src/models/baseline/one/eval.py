@@ -1,6 +1,6 @@
 from helpers.dataset import *
 from random import *
-from pytorch_transformers import GPT2Tokenizer
+from transformers import GPT2Tokenizer
 
 
 model = torch.load('model_checkpoint.h5')

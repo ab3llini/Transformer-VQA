@@ -31,11 +31,14 @@ class CaptioningDatasetCreator(VADatasetCreator):
     def process(self, candidates_tr, candidates_ts):
 
         word_freq = Counter()
+        longest_tr, longest_ts = [0], [0]
 
         # Create embeddings
         print('Processing..')
-        for candidates in [candidates_tr, candidates_ts]:
+        for candidates, longest in [[candidates_tr, longest_tr], [candidates_ts, longest_ts]]:
             for i, sample in tqdm(enumerate(candidates)):
+                if longest[0] < sample[self.tkn_a_len_idx]:
+                    longest[0] = sample[self.tkn_a_len_idx]
                 # Compute word frequencies
                 word_freq.update(sample[self.tkn_a_idx])
 
@@ -57,8 +60,11 @@ class CaptioningDatasetCreator(VADatasetCreator):
                 sample[self.tkn_a_len_idx] = len(sample[self.tkn_a_idx])
 
         # Pad sequences
-        self.pad_sequences(candidates_tr, axis=1, value=word_map['<pad>'])
-        self.pad_sequences(candidates_ts, axis=1, value=word_map['<pad>'])
+        print('Padding to size={},{}'.format(longest_tr, longest_ts))
+        candidates_tr = self.pad_sequences(candidates_tr, axis=self.tkn_a_idx, value=word_map['<pad>'],
+                                           maxlen=longest_tr[0])
+        candidates_ts = self.pad_sequences(candidates_ts, axis=self.tkn_a_idx, value=word_map['<pad>'],
+                                           maxlen=longest_ts[0])
 
         # Save word map to a JSON
         with open(os.path.join(self.wordmap_location, 'wordmap.json'), 'w') as j:
@@ -104,7 +110,12 @@ class CaptionDataset(Dataset):
         return self.maxlen
 
 
-if __name__ == '__main__':
+def create():
+    nltk.download('punkt')
     destination = resources_path('models', 'baseline', 'captioning', 'data')
-    dsc = CaptioningDatasetCreator(destination, tr_size=1000000, ts_size=100000, generation_seed=555)
+    dsc = CaptioningDatasetCreator(destination, generation_seed=555)
     dsc.create(destination)
+
+
+if __name__ == '__main__':
+    create()

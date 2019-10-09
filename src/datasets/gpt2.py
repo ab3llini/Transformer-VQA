@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 import torch
 from utilities.vqa.dataset import *
-from pytorch_transformers import GPT2Tokenizer
+from transformers import GPT2Tokenizer
 from datasets.creator import QADatasetCreator
 from torch.utils.data import Dataset
 
@@ -34,10 +34,13 @@ class GPT2DatasetCreator(QADatasetCreator):
 
     def process(self, candidates_tr, candidates_ts):
         # Add tokens to separate Q & A
+        longest_tr, longest_ts = [0], [0]
 
         print('Processing..')
-        for candidates in [candidates_tr, candidates_ts]:
+        for candidates, longest in [[candidates_tr, longest_tr], [candidates_ts, longest_ts]]:
             for i, sample in tqdm(enumerate(candidates)):
+                if longest[0] < sample[self.tkn_a_len_idx] + sample[self.tkn_q_len_idx]:
+                    longest[0] = sample[self.tkn_a_len_idx] + sample[self.tkn_q_len_idx]
                 # Add BOS, SEP & EOS tokens
                 sample[self.tkn_q_idx] = [self.tokenizer.bos_token_id] + sample[self.tkn_q_idx] + [
                     self.tokenizer.sep_token_id]
@@ -54,10 +57,10 @@ class GPT2DatasetCreator(QADatasetCreator):
         candidates_ts = np.delete(candidates_ts, obj=[self.tkn_a_idx, self.tkn_a_len_idx], axis=1)
 
         # Pad sequences
-        self.pad_sequences(candidates_tr, axis=1, value=int(self.tokenizer.pad_token_id))
-
-        # Pad sequences
-        self.pad_sequences(candidates_ts, axis=1, value=int(self.tokenizer.pad_token_id))
+        candidates_tr = self.pad_sequences(candidates_tr, axis=1, value=int(self.tokenizer.pad_token_id),
+                                           maxlen=longest_tr[0])
+        candidates_ts = self.pad_sequences(candidates_ts, axis=1, value=int(self.tokenizer.pad_token_id),
+                                           maxlen=longest_ts[0])
 
         return candidates_tr, candidates_ts
 
@@ -94,10 +97,14 @@ class GPT2Dataset(Dataset):
         return self.maxlen
 
 
-if __name__ == '__main__':
+def create():
     gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     gpt2_tokenizer.add_special_tokens(
         {'pad_token': '<pad>', 'bos_token': '<bos>', 'eos_token': '<eos>', 'sep_token': '<sep>'})
     destination = resources_path('models', 'baseline', 'answering', 'gpt2', 'data')
     dsc = GPT2DatasetCreator(tokenizer=gpt2_tokenizer, tr_size=1000000, ts_size=100000, generation_seed=555)
     dsc.create(destination)
+
+
+if __name__ == '__main__':
+    create()

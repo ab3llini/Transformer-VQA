@@ -11,7 +11,7 @@ from utilities.vqa.dataset import *
 from torch.utils.data import DataLoader
 from models.bert import loss as bert_loss
 import torch
-from pytorch_transformers import BertTokenizer
+from transformers import BertTokenizer
 
 if __name__ == '__main__':
 
