@@ -52,6 +52,9 @@ class GPT2DatasetCreator(QADatasetCreator):
                 # Update len
                 sample[self.tkn_q_len_idx] = seq_len
 
+            # Account for start, sep & stop tokens added!!
+            longest[0] += 3
+
         # Delete answer axes (tkn + len)
         candidates_tr = np.delete(candidates_tr, obj=[self.tkn_a_idx, self.tkn_a_len_idx], axis=1)
         candidates_ts = np.delete(candidates_ts, obj=[self.tkn_a_idx, self.tkn_a_len_idx], axis=1)

@@ -42,6 +42,9 @@ class CaptioningDatasetCreator(VADatasetCreator):
                 # Compute word frequencies
                 word_freq.update(sample[self.tkn_a_idx])
 
+            # Account for start & stop tokens added!!
+            longest[0] += 2
+
         # Create word map
         words = [w for w in word_freq.keys() if word_freq[w] > self.min_word_freq]
         word_map = {k: v + 1 for v, k in enumerate(words)}
@@ -119,3 +122,4 @@ def create():
 
 if __name__ == '__main__':
     create()
+

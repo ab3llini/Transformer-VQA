@@ -58,6 +58,9 @@ class BertDatasetCreator(QADatasetCreator):
                 sample[self.tkn_a_idx] = ([0] * l_q + [1] * l_a)  # Replacing answer with token type ids
                 sample[self.tkn_a_len_idx] = [1] * (l_q + l_a)  # Replacing answer len with pad mask
 
+            # Account for start, sep & stop tokens added!!
+            longest[0] += 3
+
         # Pad sequences
         candidates_tr = self.pad_sequences(candidates_tr, axis=1, value=int(self.tokenizer.pad_token_id),
                                            maxlen=longest_tr[0])

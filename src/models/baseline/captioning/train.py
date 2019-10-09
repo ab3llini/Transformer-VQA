@@ -93,6 +93,9 @@ def train():
 
     tr_dataset = CaptionDataset(directory=resources_path(model_basepath, 'data'),
                                 name='training.pk')
+
+
+
     ts_dataset = CaptionDataset(directory=resources_path(model_basepath, 'data'), name='testing.pk',
                                 split='test')
 
