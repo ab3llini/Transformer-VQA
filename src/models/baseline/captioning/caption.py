@@ -1,6 +1,8 @@
 import sys
 import os
 
+from datasets.captioning import CaptionDataset
+
 this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir))
 sys.path.append(root_path)
@@ -143,6 +145,7 @@ def caption_image_beam_search(encoder, decoder, image, word_map, beam_size=3):
 
 
 def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
+
     """
     Visualizes caption with weights at every word.
 

@@ -102,6 +102,7 @@ class GPT2Dataset(Dataset):
 
 def create():
     gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+
     gpt2_tokenizer.add_special_tokens(
         {'pad_token': '<pad>', 'bos_token': '<bos>', 'eos_token': '<eos>', 'sep_token': '<sep>'})
     destination = resources_path('models', 'baseline', 'answering', 'gpt2', 'data')

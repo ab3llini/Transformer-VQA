@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 from models.bert import model as bert_model
 from utilities.paths import *
-from utilities.training import *
+from utilities.training.trainer import *
 from utilities.vqa.dataset import *
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam

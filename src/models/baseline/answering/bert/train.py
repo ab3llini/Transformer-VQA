@@ -6,7 +6,7 @@ root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.par
 sys.path.append(root_path)
 
 from transformers import BertForMaskedLM
-from utilities.training import *
+from utilities.training.trainer import *
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from models.bert import loss as bert_loss
@@ -49,7 +49,7 @@ def train():
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=lambda out, batch: bert_loss.loss_fn(out[0], batch[0]),
         lr=learning_rate,
-        batch_size=128,
+        batch_size=64,
         batch_extractor=lambda batch: batch[1:-1],  # Get rid of id & seq length
         epochs=3,
         tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs')),

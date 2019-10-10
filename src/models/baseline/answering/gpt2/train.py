@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 from utilities.paths import *
 from transformers import GPT2LMHeadModel
-from utilities.training import *
+from utilities.training.trainer import *
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
