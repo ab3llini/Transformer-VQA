@@ -4,39 +4,82 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 
 
 class BeamSearchInput:
-    def __init__(self, model, seq_id, logits_id, *args):
+    def __init__(self, model, seq_idx, logits_idx, *args):
+        """
+        Beam search input. Use this class to provide input data to the beam search utility
+        :param model: The instance of the model in use
+        :param seq_idx: The index of the input sequence in the model input args
+        :param logits_idx: The index of the logits in the model output args. If none we assume single output model.
+        :param args: *Input arguments to the model
+        """
         self.model = model
         self.args = args
-        self.seq_id = seq_id
-        self.logits_id = logits_id
+        self.seq_idx = seq_idx
+        self.logits_idx = logits_idx
 
     def get_inputs(self):
-        return list(self.args), self.seq_id
+        """
+        This method provides input for the model
+        :return: Returns the list of arguments followed by the index of the sequence in the args
+        """
+        return list(self.args), self.seq_idx
 
     def get_logits(self, running_args):
-        return self.model(*running_args)[self.logits_id]
+        """
+        Returns the logits from the model output
+        :param running_args: These are the dynamic arguments coming from beam search.
+        It is a batch of variable size equal to the beam with at this specific time step
+        :return: The model logits
+        """
+        if self.logits_idx is None:
+            return self.model(*running_args)
+        else:
+            return self.model(*running_args)[self.logits_idx]
 
 
 class BertBeamSearchInput(BeamSearchInput):
-    def __init__(self, model, seq_id, seg_id, logits_id, *args):
-        super().__init__(model, seq_id, logits_id, *args)
+    def __init__(self, model, seq_idx, seg_id, logits_idx, *args):
+        super().__init__(model, seq_idx, logits_idx, *args)
         self.seg_id = seg_id
 
     def get_logits(self, running_args):
+        """
+        We have to update the segment id tensors every time a word is generated in BERT
+        """
         out = self.model(*running_args)
         running_args[self.seg_id] = torch.cat(
             [running_args[self.seg_id], torch.ones(running_args[self.seg_id].shape[0], 1).long().to('cuda')], dim=1)
-        return out[self.logits_id]
+        return out[self.logits_idx]
 
 
-def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len):
+def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, device='cuda'):
+    """
+    Performs beam search over a generative language model
+    Please make sure the tensors stored in the input compel with the provided computing device.
+    We do not check that here.
+    :param beam_search_input: Instance of BeamSearchInput.
+    Mandatory to work with MIMO models
+    :param vocab_size: The size of the vocabulary in use. Usually len(tokenizer)
+    :param beam_size: The beam size. The higher, the better, but slower
+    :param stop_word: We save as completed a
+    sentence that hits this stop word
+    :param max_len: We will stop if the output reaches this size with no enough
+    completed sequences
+    :param device: The device to use. Defaults to CUDA
+    :return: Returns a tuple consisting of the
+    best completed sequence and the best running sequence, according to their scores. Note that each element in the
+    tuple might be None if no sequences are found.
+    """
+
     # ----------------------------------------------
     # INITIALIZATION
     # ----------------------------------------------
     args, seq_idx = beam_search_input.get_inputs()
     running_args = args[:]
     running_sequences = args[seq_idx].expand(beam_size, -1)  # (beam_size, seq_len + step)
+    running_sequence_scores = torch.zeros(beam_size, 1).to(device)
     complete_sequences = []
+    complete_sequence_scores = []
     step = 1
     k = beam_size  # Copy because we need to lively change this parameter
 
@@ -61,9 +104,9 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len):
         preds = F.softmax(preds)
         # Compute top k logits
         if step == 1:
-            top_k_scores, top_k_words = preds[0].topk(k, dim=0)
+            running_sequence_scores, top_k_words = preds[0].topk(k, dim=0)
         else:
-            top_k_scores, top_k_words = preds.view(-1).topk(k, dim=0)
+            running_sequence_scores, top_k_words = preds.view(-1).topk(k, dim=0)
 
         # Select the most probable beams and update running sequences
         source_beam_ids = top_k_words / vocab_size
@@ -84,6 +127,7 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len):
         n_completed = len(complete_sequence_ids)
         if n_completed > 0:
             complete_sequences.extend(running_sequences[complete_sequence_ids].tolist())
+            complete_sequence_scores.extend(running_sequence_scores[complete_sequence_ids])
             k -= n_completed
             # Reduce batch size
             for idx in range(len(running_args)):
@@ -101,15 +145,38 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len):
         else:
             step += 1
 
-    return complete_sequences, running_sequences.tolist()
+    # ----------------------------------------------
+    # SELECTION
+    # ----------------------------------------------
+
+    if len(complete_sequences) > 0:
+        best_complete_idx = complete_sequence_scores.index(max(complete_sequence_scores))
+        best_complete = complete_sequences[best_complete_idx]
+    else:
+        best_complete = None
+
+    running_sequences = running_sequences.tolist()
+    running_sequence_scores = running_sequence_scores.tolist()
+
+    if len(running_sequences) > 0:
+        best_running_idx = running_sequence_scores.index(max(running_sequence_scores))
+        best_running = running_sequences[best_running_idx]
+    else:
+        best_running = None
+
+    return best_complete, best_running
 
 
 if __name__ == '__main__':
+    """
+    Sample usage
+    """
+
     # Load pre-trained model tokenizer (vocabulary)
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2-medium')
 
     # Encode a text inputs
-    text = "Who is tom cruise? "
+    text = "What color is the car?"
     indexed_tokens = tokenizer.encode(text)
 
     # Convert indexed tokens in a PyTorch tensor
@@ -126,11 +193,8 @@ if __name__ == '__main__':
     tokens_tensor = tokens_tensor.to('cuda')
     model.to('cuda')
 
-    cs, rs = beam_search(BeamSearchInput(model, 0, 0, tokens_tensor), vocab_size=len(tokenizer),
-                         beam_size=100, stop_word=tokenizer.sep_token_id, max_len=50)
+    bc, br = beam_search(BeamSearchInput(model, 0, 0, tokens_tensor), vocab_size=len(tokenizer),
+                         beam_size=25, stop_word=tokenizer.sep_token_id, max_len=50)
 
-    for seq in cs:
-        print(tokenizer.decode(seq))
-
-    for seq in rs:
-        print(tokenizer.decode(seq))
+    print('Best completed:', tokenizer.decode(bc) if bc is not None else 'None')
+    print('Best running:', tokenizer.decode(br) if br is not None else 'None')

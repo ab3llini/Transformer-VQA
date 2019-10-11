@@ -61,6 +61,10 @@ def train():
 
     bert_trainer.train()
 
+    del model
+    del bert_tokenizer
+    del bert_trainer
+
 
 if __name__ == '__main__':
     train()

@@ -86,6 +86,9 @@ def train():
 
     gpt2_trainer.train()
 
+    del model
+    del gpt2_tokenizer
+    del gpt2_trainer
 
 if __name__ == '__main__':
     train()
