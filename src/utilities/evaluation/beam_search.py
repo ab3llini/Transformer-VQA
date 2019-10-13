@@ -133,7 +133,7 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, de
             running_args[seq_idx] = running_sequences
         # Check if we need to stop
         # print('Current step = {}, Max = {}'.format(step, max_len))
-        if step == max_len:
+        if step == max_len or k == 0:
             break
         else:
             step += 1

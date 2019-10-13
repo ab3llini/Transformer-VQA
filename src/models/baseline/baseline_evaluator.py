@@ -12,6 +12,11 @@ import torch
 import models.baseline.captioning.train as modelling_caption
 from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import compute_bleu
+import seaborn as sns;
+
+sns.set()
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def evaluate():
@@ -27,7 +32,7 @@ def evaluate():
         name='testing.pk',
         split='test',
         bleu_batch=True,
-        maxlen=100
+        maxlen=1000
 
     )
     bert_dataset_ts = bert.BertDataset(
@@ -35,7 +40,7 @@ def evaluate():
         name='testing.pk',
         split='test',
         bleu_batch=True,
-        maxlen=100
+        maxlen=1000
 
     )
 
@@ -92,24 +97,34 @@ def evaluate():
     assert sanity.cross_dataset_similarity(captioning_dataset_ts, gpt2_dataset_ts, bert_dataset_ts)
     print('Cross similarity check passed: all datasets contain the same elements.')
 
-    for model_name, parameters in map.items():
-        if model_name == 'captioning' or model_name == 'gpt2':
-            continue
-        s, p, gt = compute_bleu(
-            model=parameters['model'],
-            dataset=parameters['dataset'],
-            vocab_size=parameters['vocab_size'],
-            beam_size=50,
-            stop_word=parameters['stop_word'],
-            max_len=10
-        )
+    results = {
+        "beam_size": [],
+        "model": [],
+        "BLEU": []
+    }
 
-        for pred, refs in zip(p, gt):
-            dec = bert.bert_tokenizer.convert_ids_to_tokens(pred)
-            print('Predicted = {}'.format(dec))
-            for ref in refs:
-                print('Truth = {}'.format(bert.bert_tokenizer.decode(ref)))
-        break
+    for model_name, parameters in map.items():
+        print('Evaluating {}'.format(model_name))
+        if model_name == 'captioning':
+            continue
+        for k in [1, 2, 3,  5, 10, 25, 50]:
+            bleu, _, _ = compute_bleu(
+                model=parameters['model'],
+                dataset=parameters['dataset'],
+                vocab_size=parameters['vocab_size'],
+                beam_size=k,
+                stop_word=parameters['stop_word'],
+                max_len=10
+            )
+            results['beam_size'].append(k)
+            results['model'].append(model_name)
+            results['BLEU'].append(bleu)
+
+    results = pd.DataFrame(results)
+    sns.set_style("darkgrid")
+    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU", hue="model", style="model", markers=["o", "o"], data=results)
+    plt.show()
+    plot.figure.savefig('bleu.png')
 
 
 if __name__ == '__main__':

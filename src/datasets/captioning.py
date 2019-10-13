@@ -120,13 +120,13 @@ class CaptionDataset(BeamSearchDataset):
         return self.maxlen
 
     def get_bleu_inputs(self, model, batch, device):
-        start = torch.tensor([self.word_map['<start>']]).long()
-        cap_len = torch.tensor([1]).long()
-        image = batch[0, 2]
+        start = torch.tensor([self.word_map['<start>']]).long().to(device)
+        cap_len = torch.tensor([1]).long().to(device)
+        image = batch[2][0].to(device)
         beam_search_input = BeamSearchInput(model, 0, 0, start, image, cap_len)
         ground_truths = []
-        for element in batch:
-            ground_truths.append(element[1])
+        for seq, seq_len in zip(batch[1], batch[2]):
+            ground_truths.append(seq[1:seq_len - 1].tolist())
 
         return beam_search_input, ground_truths
 
