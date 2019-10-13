@@ -155,7 +155,7 @@ fabric.properties
 # Editor-based Rest Client
 .idea/httpRequests
 
-# Android studio 3.1+ serialized cache file
+# Android studio 3.1+ serialized evaluation file
 .idea/caches/build_file_checksums.ser
 
 # JetBrains templates
@@ -173,3 +173,28 @@ fabric.properties
 .idea/sonarlint
 
 # End of https://www.gitignore.io/api/linux,images,pycharm
+.idea/OpenDomainVQA.iml
+.idea/inspectionProfiles/
+.idea/misc.xml
+.idea/modules.xml
+.idea/other.xml
+.idea/remote-mappings.xml
+.idea/vcs.xml
+.idea/webResources.xml
+resources/data/evaluation/
+resources/data/vqa/Annotations/
+resources/data/vqa/Images/val2014.zip
+resources/data/vqa/QuestionTypes/
+resources/data/vqa/Questions/
+resources/models/
+src/datasets/__pycache__/
+src/models/__pycache__/
+src/models/baseline/__pycache__/
+src/models/baseline/answering/__pycache__/
+src/models/baseline/answering/bert/__pycache__/
+src/models/baseline/answering/gpt2/__pycache__/
+src/models/baseline/captioning/__pycache__/
+src/models/bert/__pycache__/
+src/utilities/__pycache__/
+src/utilities/training/__pycache__/
+src/utilities/vqa/__pycache__/

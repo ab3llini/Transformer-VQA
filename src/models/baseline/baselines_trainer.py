@@ -20,6 +20,8 @@ This file acts as a script to run all the baseline trainings sequentially
 """
 
 BASE_DIR = paths.resources_path('models', 'baseline')
+TR_SIZE, TS_SIZE = 1000000, 1000000
+SKIP = -1
 
 MAP = {
     os.path.join(BASE_DIR, 'captioning'): [captioning_train, captioning_create],
@@ -30,19 +32,23 @@ MAP = {
 FILES = ['training.pk', 'testing.pk']
 
 
-def train():
+def create():
     # Check dataset exists otherwise create
     print('Stage 1: sanity check')
     for data_path, (train_fn, create_fn) in MAP.items():
-        for file in FILES:
+        sizes = [TR_SIZE, TS_SIZE]
+        for i, file in enumerate(FILES):
             target = os.path.join(data_path, 'data', file)
             if not os.path.exists(target):
-                print('[WARNING] File {} not found - Rebuilding dataset'.format(target))
-                create_fn()
-                break
+                print('[WARNING] File {} not found - Rebuilding it soon'.format(target))
             else:
                 print('[OK] File {} found!'.format(target))
+                sizes[i] = SKIP
+        if sizes != [SKIP, SKIP]:
+            create_fn(*sizes)
 
+
+def train():
     print('Stage 2: sequential training')
     for data_path, (train_fn, create_fn) in MAP.items():
         print('Training {}'.format(data_path))
@@ -50,4 +56,5 @@ def train():
 
 
 if __name__ == '__main__':
-    train()
+    create()
+    # train()

@@ -1,6 +1,12 @@
 import torch
 from torch.functional import F
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from torch.utils.data import Dataset
+
+
+class BeamSearchDataset(Dataset):
+    def get_bleu_inputs(self, model, batch, device):
+        pass
 
 
 class BeamSearchInput:
@@ -24,7 +30,7 @@ class BeamSearchInput:
         """
         return list(self.args), self.seq_idx
 
-    def get_logits(self, running_args):
+    def get_logits(self, running_args, args):
         """
         Returns the logits from the model output
         :param running_args: These are the dynamic arguments coming from beam search.
@@ -35,21 +41,6 @@ class BeamSearchInput:
             return self.model(*running_args)
         else:
             return self.model(*running_args)[self.logits_idx]
-
-
-class BertBeamSearchInput(BeamSearchInput):
-    def __init__(self, model, seq_idx, seg_id, logits_idx, *args):
-        super().__init__(model, seq_idx, logits_idx, *args)
-        self.seg_id = seg_id
-
-    def get_logits(self, running_args):
-        """
-        We have to update the segment id tensors every time a word is generated in BERT
-        """
-        out = self.model(*running_args)
-        running_args[self.seg_id] = torch.cat(
-            [running_args[self.seg_id], torch.ones(running_args[self.seg_id].shape[0], 1).long().to('cuda')], dim=1)
-        return out[self.logits_idx]
 
 
 def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, device='cuda'):
@@ -76,6 +67,7 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, de
     # ----------------------------------------------
     args, seq_idx = beam_search_input.get_inputs()
     running_args = args[:]
+    seq_len = len(args[seq_idx])
     running_sequences = args[seq_idx].expand(beam_size, -1)  # (beam_size, seq_len + step)
     running_sequence_scores = torch.zeros(beam_size, 1).to(device)
     complete_sequences = []
@@ -97,11 +89,11 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, de
     while True:
         # Get output logits
         with torch.no_grad():
-            logits = beam_search_input.get_logits(running_args)  # (beam_size, seq_len + step, voc_size)
+            logits = beam_search_input.get_logits(running_args, args)  # (beam_size, seq_len + step, voc_size)
         # Get predicted words in this beam batch
         preds = logits[:, -1]
         # Apply a softmax in order to have all values between 0 and 1
-        preds = F.softmax(preds)
+        preds = F.softmax(preds, dim=1)
         # Compute top k logits
         if step == 1:
             running_sequence_scores, top_k_words = preds[0].topk(k, dim=0)
@@ -135,11 +127,12 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, de
                     # Expansion
                     running_args[idx] = args[idx].expand([k] + list(args[idx].shape))
                 else:
-                    running_args[idx] = running_sequences[incomplete_sequence_ids]
+                    running_sequences = running_sequences[incomplete_sequence_ids]
+                    running_args[idx] = running_sequences
         else:
             running_args[seq_idx] = running_sequences
         # Check if we need to stop
-        print('Current step = {}, Max = {}'.format(step, max_len))
+        # print('Current step = {}, Max = {}'.format(step, max_len))
         if step == max_len:
             break
         else:
@@ -152,6 +145,8 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, de
     if len(complete_sequences) > 0:
         best_complete_idx = complete_sequence_scores.index(max(complete_sequence_scores))
         best_complete = complete_sequences[best_complete_idx]
+        best_complete = best_complete[seq_len:-1]  # Remove <eos> token and question
+
     else:
         best_complete = None
 
@@ -161,6 +156,7 @@ def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, de
     if len(running_sequences) > 0:
         best_running_idx = running_sequence_scores.index(max(running_sequence_scores))
         best_running = running_sequences[best_running_idx]
+        best_running = best_running[seq_len:]  # Remove question
     else:
         best_running = None
 

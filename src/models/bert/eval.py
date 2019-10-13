@@ -94,7 +94,7 @@ if __name__ == '__main__':
                             att_mask_in = torch.tensor(att_mask).unsqueeze(0).to(device)
                             out = model(sequence_in, input_type_ids_in, att_mask_in, selected_image)
 
-                            # Get next predicted tokens. At the beginning is only one, then two, three..
+                            # Get next predicted tokens. At the beginning is only vqa, then two, three..
                             generated_tokens = torch.argmax(out[0, -len(generated_tokens) - 1:], dim=1).tolist()
 
                             # Save last full output

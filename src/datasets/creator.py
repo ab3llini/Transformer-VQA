@@ -11,14 +11,16 @@ import keras.preprocessing as k_preproc
 import random
 
 
-class DatasetCreator:
+class TrainingDatasetCreator:
     def __init__(self, size_tr=None, size_ts=None, generation_seed=None, visual=True, question=True):
         """
-        :param size_tr:
-        :param size_ts:
-        :param generation_seed:
-        :param visual:
-        :param question:
+        Creates a task specific dataset.
+        The items in the dataset depend not oly on the seed but even on the embed function.
+        :param size_tr: Size of the training set
+        :param size_ts: Size of the testing set
+        :param generation_seed: Random seed
+        :param visual: Visual modality selector
+        :param question: Question modality selector
         """
 
         # Save split sizes
@@ -48,69 +50,103 @@ class DatasetCreator:
         self.qa_objects_tr = self.vqa_helper_tr.loadQA(self.vqa_helper_tr.getQuesIds())
         self.qa_objects_ts = self.vqa_helper_ts.loadQA(self.vqa_helper_ts.getQuesIds())
 
-    def create_candidates(self):
+    def get_training_candidates(self, qa_objects, vqa_helper, image_paths):
+        candidates = []
+        if self.size_tr == -1:
+            return candidates
+        print('Building auxiliary training candidate structures..')
+        # Skip if image is not RGB
+        for qa_object in tqdm(qa_objects):
+
+            # Parse object
+            obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
+            if not check_rgb(image_paths, obj_i):
+                continue
+
+            # Embed the question
+            q_embed, q_embed_len = self.embed_fn(obj_q)
+
+            # Performance booster.
+            prev_a = None
+            prev_a_emb = None
+            prev_a_emb_len = None
+            # Every question has 10 answers
+            for obj_a in obj_as:
+                # Try to skip embedding if possible and use cached version
+                if obj_a != prev_a:
+                    # Embed the question and answer
+                    a_embed, a_embed_len = self.embed_fn(obj_a)
+                    prev_a = obj_a
+                    prev_a_emb = a_embed
+                    prev_a_emb_len = a_embed_len
+
+                # Add sample
+                candidates.append([obj_id, q_embed, q_embed_len, obj_i, prev_a_emb, prev_a_emb_len])
+
+        return candidates
+
+    def get_testing_candidates(self, qa_objects, vqa_helper, image_paths, axes):
+        candidates = {}
+        if self.size_ts == -1:
+            return candidates
+        print('Building auxiliary testing candidate structures..')
+        # Skip if image is not RGB
+        for qa_object in tqdm(qa_objects):
+            # Parse object
+            obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
+            if not check_rgb(image_paths, obj_i):
+                continue
+
+            # Embed the question
+            q_embed, q_embed_len = self.embed_fn(obj_q)
+
+            # Performance booster.
+            prev_a = None
+            prev_a_emb = None
+            prev_a_emb_len = None
+            # Every question has 10 answers
+            for obj_a in obj_as:
+                # Try to skip embedding if possible and use cached version
+                if obj_a != prev_a:
+                    # Embed the question and answer
+                    a_embed, a_embed_len = self.embed_fn(obj_a)
+                    prev_a = obj_a
+                    prev_a_emb = a_embed
+                    prev_a_emb_len = a_embed_len
+
+                new = np.array([obj_id, q_embed, q_embed_len, obj_i, prev_a_emb, prev_a_emb_len])
+
+                # Add sample
+                if obj_id not in candidates:
+                    candidates[obj_id] = [new[axes]]
+                else:
+                    candidates[obj_id].append(new[axes])
+
+        return candidates
+
+    def create_candidates(self, axes):
         """
         This method iterates over each single element in the dataset.
         :return: A list of candidates in the form:
         [id, tkn question, tkn question len, image id, tkn answer, tkn answer len]
         """
 
-        candidates_tr, candidates_ts = [], []
-        not_rgb = 0
+        candidates_tr = self.get_training_candidates(self.qa_objects_tr, self.vqa_helper_tr, self.i_path_tr)
+        candidates_ts = self.get_testing_candidates(self.qa_objects_ts, self.vqa_helper_ts, self.i_path_ts, axes)
 
-        # We are working on Open Domain Answering systems
-        # Hence we are interested in the longest answers (annotations) first
-        objects = [[self.qa_objects_tr, candidates_tr, self.vqa_helper_tr, self.i_path_tr],
-                   [self.qa_objects_ts, candidates_ts, self.vqa_helper_ts, self.i_path_ts]]
-        print('Building auxiliary candidate structures..')
-        for qa_objects, candidates, vqa_helper, image_paths in objects:
-            # c = 0
-            # Skip if image is not RGB
-            for qa_object in tqdm(qa_objects):
+        candidates_tr, candidates_ts = np.array(candidates_tr), candidates_ts
 
-                # Parse object
-                obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
-                if not check_rgb(image_paths, obj_i):
-                    not_rgb += 10
-                    continue
+        if self.size_tr != -1:
+            # Preliminary filtering operation on training set.
+            # This reduces the input size dramatically
+            # Minimum threshold
+            min_candidates_per_len = 1000
 
-                # Embed the question
-                q_embed, q_embed_len = self.embed_fn(obj_q)
-
-                # Performance booster.
-                prev_a = None
-                prev_a_emb = None
-                prev_a_emb_len = None
-                # Every question has 10 answers
-                for obj_a in obj_as:
-                    # Try to skip embedding if possible and use cached version
-                    if obj_a != prev_a:
-                        # Embed the question and answer
-                        a_embed, a_embed_len = self.embed_fn(obj_a)
-                        prev_a = obj_a
-                        prev_a_emb = a_embed
-                        prev_a_emb_len = a_embed_len
-
-                    # Add sample
-                    candidates.append([obj_id, q_embed, q_embed_len, obj_i, prev_a_emb, prev_a_emb_len])
-                # if c > 100:
-                #     break
-                # else:
-                #     c += 1
-        print('Non RGB samples (removed) = {}'.format(not_rgb))
-
-        candidates_tr, candidates_ts = np.array(candidates_tr), np.array(candidates_ts)
-
-        # Preliminary filtering operation. This MUST be done here to ensure
-        # equal samples across different types of data sets with same seed
-        # Minimum threshold
-        min_candidates_per_len = 1000
-
-        for split, candidates in enumerate([candidates_tr, candidates_ts]):
+            # Pre filtering of short candidates. Only for training.
             len_counter = Counter()
             len_positions = {}
             # First scan to init filtering counters
-            for idx, sample in enumerate(candidates):
+            for idx, sample in enumerate(candidates_tr):
                 tot_len = sample[2] + sample[5]
                 len_counter[tot_len] += 1
                 if tot_len not in len_positions:
@@ -136,12 +172,10 @@ class DatasetCreator:
                 remove_indices += len_positions[length]
 
             print('Will remove all samples which Q+A len in {} ({} indices)'.format(to_remove, len(remove_indices)))
-            if split == 0:
-                candidates_tr = np.delete(candidates, obj=remove_indices, axis=0)
-            else:
-                candidates_ts = np.delete(candidates, obj=remove_indices, axis=0)
+            candidates_tr = np.delete(candidates_tr, obj=remove_indices, axis=0)
+            candidates_tr = candidates_tr[:, axes]
 
-        return np.array(candidates_tr), np.array(candidates_ts)
+        return candidates_tr, candidates_ts
 
     def select_candidate_modalities(self):
         """
@@ -158,9 +192,9 @@ class DatasetCreator:
         else:
             axes = [0, 4, 5]  # A
 
-        candidates_tr, candidates_ts = self.create_candidates()
+        candidates_tr, candidates_ts = self.create_candidates(axes)
 
-        return candidates_tr[:, axes], candidates_ts[:, axes]
+        return candidates_tr, candidates_ts
 
     def filter_candidates(self, candidates_tr, candidates_ts):
         """
@@ -168,33 +202,56 @@ class DatasetCreator:
         those candidates whose annotation is longer up to the limit size.
         You can, and are advised to, override this method whenever needed for custom filtering.
         Just make sure to return the data in the correct way
-        :return: A tuple of candidates (tr & ts) whose size must match the specified one in the init method
+        :return: A tuple of candidates (tr & ts) whose size must match the specified vqa in the init method
         """
 
         # Sanity check
         if self.size_tr is not None:
             assert self.size_tr <= len(candidates_tr)
         if self.size_ts is not None:
-            assert self.size_ts <= len(candidates_ts)
+            assert self.size_ts <= len(candidates_ts) * 10
 
         filtered_tr, filtered_ts = [], []
 
-        # Shuffle samples before selecting them
-        np.random.seed(self.generation_seed)
-
         # Get the indices of the K candidates whose answer length is longest
         # K = size (either tr or ts)
-        for candidates, filtered, size in [[candidates_tr, filtered_tr, self.size_tr],
-                                           [candidates_ts, filtered_ts, self.size_ts]]:
-            np.random.shuffle(candidates)
+        for split, (candidates, filtered, size) in enumerate([[candidates_tr, filtered_tr, self.size_tr],
+                                                              [candidates_ts, filtered_ts, self.size_ts]]):
+
+            # Skip if we do not need to rebuild:
+            if size == -1:
+                continue
 
             if size is None:
                 filtered[:] = candidates
                 continue
-            # Note: candidates[: -1] returns the length of the tokenized answer at that row
-            longest_answers_indices = np.argpartition(candidates[:, -1], -size)[-size:]
-            # Select only the longest answers
-            filtered[:] = candidates[longest_answers_indices]
+
+            if split == 0:  # Training set
+                # Reset random seed
+                np.random.seed(self.generation_seed)
+                np.random.shuffle(candidates)
+
+                # Note: candidates[: -1] returns the length of the tokenized answer at that row
+                longest_answers_indices = np.argpartition(candidates[:, -1], -size)[-size:]
+                # Select only the longest answers
+                filtered[:] = candidates[longest_answers_indices]
+            else:
+                # Testing set should be equal across all dataset with same seed
+                # Here we select randomly 1/10 ts size of question ids and come up with the testing set.
+                # In the testing set we are interested in having all the annotations for each question to compute the
+                # BLEU score
+
+                # Reset random seed
+                np.random.seed(self.generation_seed)
+                all_question_ids = list(candidates.keys())
+                rand_question_ids = np.random.choice(all_question_ids, size=int(size / 10), replace=False)
+                print(
+                    'Ok so, we have randomly saelected {} question ids, the ts dics contains {} keys (each 10 elements)'.format(
+                        len(rand_question_ids), len(candidates_ts)))
+                print('Creating filtered testing set..')
+                for question_id in tqdm(rand_question_ids):
+                    filtered.extend(candidates_ts[question_id])
+                print('Filtered now contains {} elements'.format(len(filtered)))
 
         return filtered_tr, filtered_ts
 
@@ -246,11 +303,13 @@ class DatasetCreator:
     def create(self, location):
         candidates = self.build()
         set_tr, set_ts = self.process(*candidates)
-        self.save(set_tr, os.path.join(location, 'training.pk'))
-        self.save(set_ts, os.path.join(location, 'testing.pk'))
+        if self.size_tr != -1:
+            self.save(set_tr, os.path.join(location, 'training.pk'))
+        if self.size_ts != -1:
+            self.save(set_ts, os.path.join(location, 'testing.pk'))
 
 
-class VADatasetCreator(DatasetCreator):
+class VADatasetCreator(TrainingDatasetCreator):
     def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
         super().__init__(tr_size, ts_size, generation_seed, visual=True, question=False)
         self.img_idx = 1
@@ -258,7 +317,7 @@ class VADatasetCreator(DatasetCreator):
         self.tkn_a_len_idx = 3
 
 
-class QADatasetCreator(DatasetCreator):
+class QADatasetCreator(TrainingDatasetCreator):
     def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
         super().__init__(tr_size, ts_size, generation_seed, visual=False, question=True)
         self.tkn_q_idx = 1
@@ -267,7 +326,7 @@ class QADatasetCreator(DatasetCreator):
         self.tkn_a_len_idx = 4
 
 
-class VQADatasetCreator(DatasetCreator):
+class VQADatasetCreator(TrainingDatasetCreator):
     def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
         super().__init__(tr_size, ts_size, generation_seed, visual=True, question=True)
         self.tkn_q_idx = 1

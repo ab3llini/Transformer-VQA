@@ -11,6 +11,7 @@ from datasets.creator import VADatasetCreator
 from torch.utils.data import Dataset
 import nltk
 from collections import Counter
+from utilities.evaluation.beam_search import BeamSearchInput, BeamSearchDataset
 
 
 class CaptioningDatasetCreator(VADatasetCreator):
@@ -39,6 +40,7 @@ class CaptioningDatasetCreator(VADatasetCreator):
             for i, sample in tqdm(enumerate(candidates)):
                 if longest[0] < sample[self.tkn_a_len_idx]:
                     longest[0] = sample[self.tkn_a_len_idx]
+                    print('New longest = {}'.format(longest[0]))
                 # Compute word frequencies
                 word_freq.update(sample[self.tkn_a_idx])
 
@@ -63,11 +65,13 @@ class CaptioningDatasetCreator(VADatasetCreator):
                 sample[self.tkn_a_len_idx] = len(sample[self.tkn_a_idx])
 
         # Pad sequences
-        print('Padding to size={},{}'.format(longest_tr, longest_ts))
-        candidates_tr = self.pad_sequences(candidates_tr, axis=self.tkn_a_idx, value=word_map['<pad>'],
-                                           maxlen=longest_tr[0])
-        candidates_ts = self.pad_sequences(candidates_ts, axis=self.tkn_a_idx, value=word_map['<pad>'],
-                                           maxlen=longest_ts[0])
+        print('Padding sequences')
+        if self.size_tr != -1:
+            candidates_tr = self.pad_sequences(candidates_tr, axis=self.tkn_a_idx, value=word_map['<pad>'],
+                                               maxlen=longest_tr[0])
+        if self.size_ts != -1:
+            candidates_ts = self.pad_sequences(candidates_ts, axis=self.tkn_a_idx, value=word_map['<pad>'],
+                                               maxlen=longest_ts[0])
 
         # Save word map to a JSON
         with open(os.path.join(self.wordmap_location, 'wordmap.json'), 'w') as j:
@@ -76,7 +80,7 @@ class CaptioningDatasetCreator(VADatasetCreator):
         return candidates_tr, candidates_ts
 
 
-class CaptionDataset(Dataset):
+class CaptionDataset(BeamSearchDataset):
     def __init__(self, directory, name, maxlen=None, split='train'):
         try:
             with open(os.path.join(directory, name), 'rb') as fd:
@@ -85,6 +89,9 @@ class CaptionDataset(Dataset):
             _, _, self.i_path = get_data_paths(data_type=split)
             self.maxlen = maxlen if maxlen is not None else len(self.data)
             self.split = split
+            word_map_file = resources_path(directory, 'wordmap.json')
+            with open(word_map_file, 'r') as j:
+                self.word_map = json.load(j)
             print('Data loaded successfully.')
 
             for e in range(len(self.data) - 1):
@@ -112,14 +119,24 @@ class CaptionDataset(Dataset):
     def __len__(self):
         return self.maxlen
 
+    def get_bleu_inputs(self, model, batch, device):
+        start = torch.tensor([self.word_map['<start>']]).long()
+        cap_len = torch.tensor([1]).long()
+        image = batch[0, 2]
+        beam_search_input = BeamSearchInput(model, 0, 0, start, image, cap_len)
+        ground_truths = []
+        for element in batch:
+            ground_truths.append(element[1])
 
-def create():
+        return beam_search_input, ground_truths
+
+
+def create(tr_size=1000000, ts_size=100000):
     nltk.download('punkt')
     destination = resources_path('models', 'baseline', 'captioning', 'data')
-    dsc = CaptioningDatasetCreator(destination, tr_size=1000000, ts_size=100000, generation_seed=555)
+    dsc = CaptioningDatasetCreator(destination, tr_size=tr_size, ts_size=ts_size, generation_seed=555)
     dsc.create(destination)
 
 
 if __name__ == '__main__':
     create()
-

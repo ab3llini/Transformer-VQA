@@ -36,7 +36,7 @@ if os.path.isfile(imgDir + imgFilename):
 
 # load and display QA annotations for given answer types
 """
-ansTypes can be one of the following
+ansTypes can be vqa of the following
 yes/no
 number
 other
