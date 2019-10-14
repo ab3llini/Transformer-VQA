@@ -123,7 +123,7 @@ class CaptionDataset(BeamSearchDataset):
         start = torch.tensor([self.word_map['<start>']]).long().to(device)
         cap_len = torch.tensor([1]).long().to(device)
         image = batch[2][0].to(device)
-        beam_search_input = BeamSearchInput(model, 0, 0, start, image, cap_len)
+        beam_search_input = BeamSearchInput(model, 0, 2, start, image, cap_len)
         ground_truths = []
         for seq, seq_len in zip(batch[1], batch[3]):
             ground_truths.append(seq[1:seq_len - 1].tolist())
