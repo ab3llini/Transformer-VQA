@@ -57,11 +57,10 @@ def evaluate():
 
     bert_model = BertForMaskedLM.from_pretrained('bert-base-uncased')
 
-    """
     captioning_model.load_state_dict(
         torch.load(
             os.path.join(BASE_DIR, 'captioning', 'checkpoints', 'B_256_LR_0.0004_CHKP_EPOCH_2.pth')))
-    """
+
     gpt2_model.load_state_dict(
         torch.load(
             os.path.join(BASE_DIR, 'answering', 'gpt2', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
@@ -105,9 +104,8 @@ def evaluate():
 
     for model_name, parameters in map.items():
         print('Evaluating {}'.format(model_name))
-        if model_name == 'captioning':
-            continue
-        for k in [1, 2, 3,  5, 10, 25, 50]:
+
+        for k in [1, 2, 3, 5, 10, 25, 50]:
             bleu, _, _ = compute_bleu(
                 model=parameters['model'],
                 dataset=parameters['dataset'],
@@ -122,7 +120,8 @@ def evaluate():
 
     results = pd.DataFrame(results)
     sns.set_style("darkgrid")
-    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU", hue="model", style="model", markers=["o", "o"], data=results)
+    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU", hue="model", style="model", markers=["o", "o"],
+                        data=results)
     plt.show()
     plot.figure.savefig('bleu.png')
 

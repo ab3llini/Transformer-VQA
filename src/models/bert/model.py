@@ -32,7 +32,7 @@ class Attention(nn.Module):
 
     def __init__(self, image_channels=512, bert_size=768, attention_dim=512):
         super(Attention, self).__init__()
-        self.encoder_att = nn.Linear(image_channels, attention_dim)  # linear layer to transform encoded image
+        self.encoder_att = nn.Linear(image_channels,  )  # linear layer to transform encoded image
         self.decoder_att = nn.Linear(bert_size, attention_dim)  # linear layer to transform decoder's output
         self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
         self.relu = nn.ReLU()
