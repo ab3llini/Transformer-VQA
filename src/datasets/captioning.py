@@ -80,6 +80,17 @@ class CaptioningDatasetCreator(VADatasetCreator):
         return candidates_tr, candidates_ts
 
 
+class CaptioningBeamSearchInput(BeamSearchInput):
+    def get_logits(self, running_args, args):
+        """
+        We have to update the caplen while running the beam search
+        """
+        out = self.model(*running_args)
+        running_args[2] = running_args[2] + 1
+        args[2] = args[2] + 1
+        return out[self.logits_idx]
+
+
 class CaptionDataset(BeamSearchDataset):
     def __init__(self, directory, name, maxlen=None, split='train'):
         try:
@@ -121,9 +132,9 @@ class CaptionDataset(BeamSearchDataset):
 
     def get_bleu_inputs(self, model, batch, device):
         start = torch.tensor([self.word_map['<start>']]).long().to(device)
-        cap_len = torch.tensor([1]).long().to(device)
+        cap_len = torch.tensor([2]).long().to(device)
         image = batch[2][0].to(device)
-        beam_search_input = BeamSearchInput(model, 0, 1, start, image, cap_len)
+        beam_search_input = CaptioningBeamSearchInput(model, 0, 1, start, image, cap_len)
         ground_truths = []
         for seq, seq_len in zip(batch[1], batch[3]):
             ground_truths.append(seq[1:seq_len - 1].tolist())

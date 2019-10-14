@@ -40,7 +40,8 @@ class BeamSearchInput:
         if self.logits_idx is None:
             return self.model(*running_args)
         else:
-            return self.model(*running_args)[self.logits_idx]
+            out = self.model(*running_args)
+            return out[self.logits_idx]
 
 
 def beam_search(beam_search_input, vocab_size, beam_size, stop_word, max_len, device='cuda'):

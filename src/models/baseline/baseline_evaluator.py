@@ -19,16 +19,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def evaluate():
-    BASE_DIR = paths.resources_path('models', 'baseline')
+def prepare_data(base_dir):
     captioning_dataset_ts = captioning.CaptionDataset(
-        directory=os.path.join(BASE_DIR, 'captioning', 'data'),
+        directory=os.path.join(base_dir, 'captioning', 'data'),
         name='testing.pk',
         split='test',
         maxlen=1000
     )
     gpt2_dataset_ts = gpt2.GPT2Dataset(
-        directory=os.path.join(BASE_DIR, 'answering', 'gpt2', 'data'),
+        directory=os.path.join(base_dir, 'answering', 'gpt2', 'data'),
         name='testing.pk',
         split='test',
         bleu_batch=True,
@@ -36,7 +35,7 @@ def evaluate():
 
     )
     bert_dataset_ts = bert.BertDataset(
-        directory=os.path.join(BASE_DIR, 'answering', 'bert', 'data'),
+        directory=os.path.join(base_dir, 'answering', 'bert', 'data'),
         name='testing.pk',
         split='test',
         bleu_batch=True,
@@ -59,19 +58,19 @@ def evaluate():
 
     captioning_model.load_state_dict(
         torch.load(
-            os.path.join(BASE_DIR, 'captioning', 'checkpoints', 'B_256_LR_0.0004_CHKP_EPOCH_2.pth')))
+            os.path.join(base_dir, 'captioning', 'checkpoints', 'B_256_LR_0.0004_CHKP_EPOCH_2.pth')))
 
     gpt2_model.load_state_dict(
         torch.load(
-            os.path.join(BASE_DIR, 'answering', 'gpt2', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
+            os.path.join(base_dir, 'answering', 'gpt2', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
 
     bert_model.load_state_dict(
         torch.load(
-            os.path.join(BASE_DIR, 'answering', 'bert', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
+            os.path.join(base_dir, 'answering', 'bert', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
 
     print('Checkpoints loaded in RAM')
 
-    map = {
+    data = {
         'captioning': {
             'dataset': captioning_dataset_ts,
             'vocab_size': len(captioning_dataset_ts.word_map),
@@ -93,19 +92,23 @@ def evaluate():
     }
 
     # Make sure we are evaluating across the same exact samples
-    # assert sanity.cross_dataset_similarity(captioning_dataset_ts, gpt2_dataset_ts, bert_dataset_ts)
+    assert sanity.cross_dataset_similarity(captioning_dataset_ts, gpt2_dataset_ts, bert_dataset_ts)
     print('Cross similarity check passed: all datasets contain the same elements.')
 
+    return data
+
+
+def evaluate(data):
     results = {
         "beam_size": [],
         "model": [],
         "BLEU": []
     }
 
-    for model_name, parameters in map.items():
+    for model_name, parameters in data.items():
         print('Evaluating {}'.format(model_name))
 
-        for k in [1, 2, 3, 5, 10, 25, 50]:
+        for k in [1]:
             bleu, _, _ = compute_bleu(
                 model=parameters['model'],
                 dataset=parameters['dataset'],
@@ -120,11 +123,18 @@ def evaluate():
 
     results = pd.DataFrame(results)
     sns.set_style("darkgrid")
-    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU", hue="model", style="model", markers=["o", "o"],
+    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU", hue="model", style="model", markers=["o"] * len(data),
                         data=results)
     plt.show()
-    plot.figure.savefig('bleu.png')
+    return plot.figure, results
 
 
 if __name__ == '__main__':
-    evaluate()
+    BASE_DIR = paths.resources_path('models', 'baseline')
+    data = prepare_data(base_dir=BASE_DIR)
+    plot, results = evaluate(data)
+
+    # Save files
+    SAVE_DIR = paths.resources_path('results', 'baseline')
+    plot.savefig(os.path.join(SAVE_DIR, 'bleu.png'))
+    results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
