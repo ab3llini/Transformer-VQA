@@ -125,7 +125,7 @@ class CaptionDataset(BeamSearchDataset):
         image = batch[2][0].to(device)
         beam_search_input = BeamSearchInput(model, 0, 0, start, image, cap_len)
         ground_truths = []
-        for seq, seq_len in zip(batch[1], batch[2]):
+        for seq, seq_len in zip(batch[1], batch[3]):
             ground_truths.append(seq[1:seq_len - 1].tolist())
 
         return beam_search_input, ground_truths
