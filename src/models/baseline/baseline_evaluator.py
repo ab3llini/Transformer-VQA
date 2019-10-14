@@ -24,14 +24,14 @@ def prepare_data(base_dir):
         directory=os.path.join(base_dir, 'captioning', 'data'),
         name='testing.pk',
         split='test',
-        maxlen=1000
+        maxlen=100000
     )
     gpt2_dataset_ts = gpt2.GPT2Dataset(
         directory=os.path.join(base_dir, 'answering', 'gpt2', 'data'),
         name='testing.pk',
         split='test',
         bleu_batch=True,
-        maxlen=1000
+        maxlen=100000
 
     )
     bert_dataset_ts = bert.BertDataset(
@@ -39,7 +39,7 @@ def prepare_data(base_dir):
         name='testing.pk',
         split='test',
         bleu_batch=True,
-        maxlen=1000
+        maxlen=100000
 
     )
 
@@ -108,7 +108,7 @@ def evaluate(data):
     for model_name, parameters in data.items():
         print('Evaluating {}'.format(model_name))
 
-        for k in [1]:
+        for k in [1, 2, 3, 5, 10, 20]:
             bleu, _, _ = compute_bleu(
                 model=parameters['model'],
                 dataset=parameters['dataset'],
