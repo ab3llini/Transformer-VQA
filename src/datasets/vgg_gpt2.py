@@ -113,10 +113,9 @@ class VGGPT2Dataset(BeamSearchDataset):
 
         identifier = sample[0]
         sequence = torch.tensor(sample[1]).long()
-        image = torch.tensor(sample[3]).long()
-        image_transformed = transform_image(self.get_image(sample[3]))
+        image = transform_image(self.get_image(sample[3]))
         if not self.bleu_batch:
-            return identifier, sequence, image_transformed, image
+            return identifier, sequence, image
         else:
             lengths = sample[2]
             seq_len, q_len, a_len = lengths

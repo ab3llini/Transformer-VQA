@@ -24,8 +24,8 @@ import matplotlib.cm as cm
 
 import random
 
-_, _, i_path_tr = get_data_paths(data_type='train')
-_, _, i_path_ts = get_data_paths(data_type='test')
+q_path_tr, a_path_tr, i_path_tr = get_data_paths(data_type='train')
+vqa_helper_tr = VQA(a_path_tr, q_path_tr)
 
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 gpt2_tokenizer.add_special_tokens(
@@ -39,7 +39,7 @@ def softmap_visualize(softmaps, sequence, image, i_path):
     """
 
     softmaps = softmaps.detach().to('cpu')
-    image = load_image(i_path, image.item())
+    image = load_image(i_path, image)
 
     image = image.resize([7 * 32, 7 * 32], Image.LANCZOS)
     words_tokenized = sequence.tolist()
@@ -50,7 +50,7 @@ def softmap_visualize(softmaps, sequence, image, i_path):
     for t in range(len(words)):
         if t > 25:
             break
-        plot = plt.subplot(np.ceil(len(words) / 5.), 5, t + 1)
+        plt.subplot(np.ceil(len(words) / 5.), 5, t + 1)
         if words[t][0] == 'Ġ':  # Remove new word indicator of gpt2 tokenizer
             words[t] = words[t][1:]
 
@@ -68,23 +68,23 @@ def softmap_visualize(softmaps, sequence, image, i_path):
         plt.axis('off')
 
     fig = plt.gcf()
-    plt.show()
+    # plt.show()
 
     return fig, words
 
 
-def gpt2_callback_fn(output, batch, iteration, epoch, global_step, task, tb):
+def gpt2_callback_fn(output, batch, iteration, epoch, task, tb):
     softmap_fig, words = softmap_visualize(
         softmaps=output[1][0],
         sequence=batch[1][0],
-        image=batch[3][0],
-        i_path=i_path_tr if task == 'train' else i_path_ts
+        image=vqa_helper_tr.getImgIds(quesIds=[batch[0][0].item()])[0],
+        i_path=i_path_tr
     )
 
     tb.add_figure(
-        tag='{}'.format(" ".join(str(w) for w in words)),
+        tag='IT_{}_ID_{}_{}'.format(iteration, batch[0][0].item(), task.upper()),
         figure=softmap_fig,
-        global_step=global_step
+        global_step=epoch
     )
 
 
@@ -96,23 +96,22 @@ def train():
 
     tr_dataset = VGGPT2Dataset(directory=resources_path(model_basepath, 'data'),
                                name='training.pk')
-    ts_dataset = VGGPT2Dataset(directory=resources_path(model_basepath, 'data'),
-                               name='testing.pk', split='test')
 
     learning_rate = 5e-5
+    epochs = 20
 
-    tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'exp1'))
+    tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'exp2'))
 
     gpt2_trainer = Trainer(
         model=model,
         tr_dataset=tr_dataset,
-        ts_dataset=ts_dataset,
+        ts_dataset=None,
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=lambda out, batch: loss(out[0], batch[0]),
         lr=learning_rate,
-        batch_size=64,
-        batch_extractor=lambda batch: batch[1:3],  # Get rid id & original image
-        epochs=3,
+        batch_size=40,
+        batch_extractor=lambda batch: batch[1:],  # Get rid id & original image
+        epochs=epochs,
         tensorboard=tb,
         checkpoint_path=resources_path(model_basepath, 'checkpoints'),
         callback_fn=lambda *args: gpt2_callback_fn(*(list(args) + [tb])),
