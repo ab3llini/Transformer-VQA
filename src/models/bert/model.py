@@ -32,11 +32,11 @@ class Attention(nn.Module):
 
     def __init__(self, image_channels=512, bert_size=768, attention_dim=512):
         super(Attention, self).__init__()
-        self.encoder_att = nn.Linear(image_channels,  )  # linear layer to transform encoded image
+        self.encoder_att = nn.Linear(image_channels, attention_dim)  # linear layer to transform encoded image
         self.decoder_att = nn.Linear(bert_size, attention_dim)  # linear layer to transform decoder's output
         self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
         self.relu = nn.ReLU()
-        self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
+        self.softmax = nn.Softmax(dim=2)  # softmax layer to calculate weights
 
     def forward(self, vgg_out, bert_hidden):
         """
@@ -103,7 +103,8 @@ class Model(nn.Module):
     def forward(self, token_ids, images, token_type_ids, attenton_mask):
 
         if token_type_ids is not None:
-            language_model_out = self.language_model(token_ids, token_type_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)
+            language_model_out = self.language_model(token_ids, token_type_ids,
+                                                     attenton_mask)  # (batch_size, n_tokens, bert_size)
         else:
             language_model_out = self.language_model(token_ids, attenton_mask)  # (batch_size, n_tokens, bert_size)
         image_encoder_out = self.image_encoder(images)  # (batch_size, 7, 7, encoder_dim)
@@ -115,7 +116,8 @@ class Model(nn.Module):
         image_encoder_out = image_encoder_out.view(batch_size, -1, image_encoder_dim)  # attention, alphas
 
         # Compute the attention over the 512 channels of VGG using the bert hidden hyper parameters
-        attention_out = self.question_image_att(image_encoder_out, language_model_out)[0]  # (batch_size, n_tokens, encoder_dim)
+        attention_out = self.question_image_att(image_encoder_out, language_model_out)[
+            0]  # (batch_size, n_tokens, encoder_dim)
 
         # Bring the attention output to the same space of the bert output, then multiply
         fusion = language_model_out * self.attention_fc(attention_out)  # (batch_size, n_tokens, bert_size)

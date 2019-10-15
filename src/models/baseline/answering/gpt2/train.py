@@ -61,7 +61,7 @@ def train():
     model.train()
 
     tr_dataset = GPT2Dataset(directory=resources_path(model_basepath, 'data'),
-                             name='training.pk', split='test')
+                             name='training.pk')
     ts_dataset = GPT2Dataset(directory=resources_path(model_basepath, 'data'),
                              name='testing.pk', split='test')
 
