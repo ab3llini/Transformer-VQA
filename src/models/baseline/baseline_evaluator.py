@@ -28,11 +28,11 @@ def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
 
     gpt2_dataset_ts = gpt2.GPT2Dataset(location=os.path.join(base_dir, 'answering', 'gpt2', 'data'), split='testing',
                                        evaluating=True,
-                                       maxlen=20)
+                                       maxlen=20000)
 
     bert_dataset_ts = bert.BertDataset(location=os.path.join(base_dir, 'answering', 'bert', 'data'), split='testing',
                                        evaluating=True,
-                                       maxlen=20)
+                                       maxlen=20000)
     """
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
