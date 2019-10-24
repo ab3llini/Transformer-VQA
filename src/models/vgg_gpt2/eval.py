@@ -52,6 +52,12 @@ def set_seed(seed):
     random.seed(seed)
     torch.manual_seed(seed)
 
+def decode_fn(pred):
+    try:
+        return nltk.word_tokenize(gpt2_tokenizer.decode(pred))
+    except Exception as e:
+        print('Exception while trying to decode {}.. Returning an empty string..'.format(pred))
+        return ''
 
 def evaluate_bleu_score():
     results = {
@@ -65,10 +71,10 @@ def evaluate_bleu_score():
         bleu, _, _ = compute_corpus_bleu(
             model=model,
             dataset=ts_dataset,
-            decode_fn=lambda pred: nltk.word_tokenize(gpt2_tokenizer.decode(pred)),
+            decode_fn=decode_fn,
             vocab_size=len(gpt2_tokenizer),
             beam_size=k,
-            stop_word=gpt2_tokenizer.eos_token_id,
+            stop_word=[gpt2_tokenizer.eos_token_id, gpt2_tokenizer.sep_token_id, gpt2_tokenizer.bos_token_id],
             max_len=10,
             device=device
         )
@@ -106,7 +112,7 @@ if __name__ == '__main__':
 
     # Load testing dataset in RAM
     ts_dataset = VGGPT2Dataset(location=os.path.join(model_basepath, 'data'), split='testing', evaluating=True,
-                               maxlen=20000)
+                               maxlen=50)
 
     # Create a specific data loader that returns equal batch for bleu evaluation.
     # loader = DataLoader(dataset=ts_dataset, shuffle=True, batch_size=10, pin_memory=True, num_workers=4)

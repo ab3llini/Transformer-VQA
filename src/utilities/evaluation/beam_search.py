@@ -109,8 +109,12 @@ def beam_search(model, beam_search_input, vocab_size, beam_size, stop_word, max_
         running_sequences = torch.cat([selected_source_beams, next_most_probable_words], dim=1)
 
         # Check if any sequence reached the end
-        incomplete_sequence_ids = [i for i, next_word in enumerate(next_most_probable_words.squeeze(1)) if
-                                   next_word.item() != stop_word]
+        if type(stop_word) != list:
+            incomplete_sequence_ids = [i for i, next_word in enumerate(next_most_probable_words.squeeze(1)) if
+                                       next_word.item() != stop_word]
+        else:
+            incomplete_sequence_ids = [i for i, next_word in enumerate(next_most_probable_words.squeeze(1)) if
+                                       next_word.item() not in stop_word]
 
         complete_sequence_ids = list(
             set(range(len(next_most_probable_words.squeeze(1)))) - set(incomplete_sequence_ids))
@@ -240,8 +244,12 @@ def beam_search_with_softmaps(model, beam_search_input, vocab_size, beam_size, s
         running_sequences_outs = softmaps
 
         # Check if any sequence reached the end
-        incomplete_sequence_ids = [i for i, next_word in enumerate(next_most_probable_words.squeeze(1)) if
-                                   next_word.item() != stop_word]
+        if type(stop_word) != list:
+            incomplete_sequence_ids = [i for i, next_word in enumerate(next_most_probable_words.squeeze(1)) if
+                                       next_word.item() != stop_word]
+        else:
+            incomplete_sequence_ids = [i for i, next_word in enumerate(next_most_probable_words.squeeze(1)) if
+                                       next_word.item() not in stop_word]
 
         complete_sequence_ids = list(
             set(range(len(next_most_probable_words.squeeze(1)))) - set(incomplete_sequence_ids))
