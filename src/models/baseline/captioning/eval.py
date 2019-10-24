@@ -11,6 +11,8 @@ from utilities.evaluation.beam_search import *
 from models.baseline.captioning.model import CaptioningModel
 from datasets.captioning import CaptionDataset
 import random
+import pandas as pd
+from utilities import paths
 
 
 def evaluate_bleu_score():
@@ -45,9 +47,10 @@ if __name__ == '__main__':
             os.path.join(model_basepath, 'checkpoints', 'B_256_LR_0.0004_CHKP_EPOCH_2.pth')))
     model.eval()
 
-    ts_dataset = CaptionDataset(directory=resources_path(model_basepath, 'data'), name='testing.pk',
-                                split='test', maxlen=10000)
+    ts_dataset = CaptionDataset(location=os.path.join(model_basepath, 'data'), split='testing', evaluating=True,
+                                maxlen=20000)
 
+    """
     scores, predictions, references = compute_sentences_bleu(
         model=model,
         dataset=ts_dataset,
@@ -63,14 +66,31 @@ if __name__ == '__main__':
             print([rev_word_map[w] for w in pred])
             for ref in refs:
                 print([rev_word_map[w] for w in ref])
+    """
+    results = {
+        'model': [],
+        'beam_size': [],
+        'BLEU1': []
+    }
 
-    score, _, _ = scores, predictions, references = compute_corpus_bleu(
+    bleu, _, _ = compute_corpus_bleu(
         model=model,
         dataset=ts_dataset,
+        decode_fn=lambda pred: [rev_word_map[w] for w in pred],
         vocab_size=len(word_map),
         beam_size=1,
         stop_word=word_map['<end>'],
-        max_len=10
+        max_len=10,
+        device=device
     )
 
-    print('Corpus bleu = {}'.format(score))
+    results['beam_size'].append(1)
+    results['model'].append('Captioning')
+    results['BLEU1'].append(bleu)
+
+    results = pd.DataFrame(results)
+
+    print('Corpus bleu = {}'.format(bleu))
+
+    SAVE_DIR = paths.resources_path('results', 'baseline', 'captioning')
+    results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))

@@ -5,7 +5,7 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from models.vgg_gpt2.model import VGGPT2, gpt2_tokenizer
+from models.vgg_gpt2.model import VGGPT2
 from utilities import paths
 import random
 from utilities.visualization.softmap import *

@@ -88,6 +88,8 @@ def beam_search(model, beam_search_input, vocab_size, beam_size, stop_word, max_
             out = model(*running_args)
             logits = out[beam_search_input.logits_idx]  # (beam_size, seq_len + step, voc_size)
 
+        running_args, args = beam_search_input.update_args(running_args, args)
+
         # Get predicted words in this beam batch
         preds = logits[:, -1]
         # Apply a softmax in order to have all values between 0 and 1

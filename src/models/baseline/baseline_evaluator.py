@@ -13,36 +13,27 @@ import models.baseline.captioning.train as modelling_caption
 from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import compute_corpus_bleu
 import seaborn as sns;
-
+import nltk
 sns.set()
 import matplotlib.pyplot as plt
 import pandas as pd
 
 
 def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
-    captioning_dataset_ts = captioning.CaptionDataset(
-        directory=os.path.join(base_dir, 'captioning', 'data'),
-        name='testing.pk',
-        split='test',
-        maxlen=100000
-    )
-    gpt2_dataset_ts = gpt2.GPT2Dataset(
-        directory=os.path.join(base_dir, 'answering', 'gpt2', 'data'),
-        name='testing.pk',
-        split='test',
-        bleu_batch=True,
-        maxlen=100000
+    """
+    captioning_dataset_ts = captioning.CaptionDataset(location=os.path.join(base_dir, 'captioning', 'data'),
+                                                      split='testing',
+                                                      evaluating=True,
+                                                      maxlen=20000)"""
 
-    )
-    bert_dataset_ts = bert.BertDataset(
-        directory=os.path.join(base_dir, 'answering', 'bert', 'data'),
-        name='testing.pk',
-        split='test',
-        bleu_batch=True,
-        maxlen=100000
+    gpt2_dataset_ts = gpt2.GPT2Dataset(location=os.path.join(base_dir, 'answering', 'gpt2', 'data'), split='testing',
+                                       evaluating=True,
+                                       maxlen=20)
 
-    )
-
+    bert_dataset_ts = bert.BertDataset(location=os.path.join(base_dir, 'answering', 'bert', 'data'), split='testing',
+                                       evaluating=True,
+                                       maxlen=20)
+    """
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
         modelling_caption.attention_dim,
@@ -50,15 +41,18 @@ def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
         modelling_caption.decoder_dim,
         captioning_dataset_ts.word_map,
         modelling_caption.dropout
-    )
+    )"""
+
     gpt2_model = GPT2LMHeadModel.from_pretrained('gpt2')
     gpt2_model.resize_token_embeddings(len(gpt2.gpt2_tokenizer))
 
     bert_model = BertForMaskedLM.from_pretrained('bert-base-uncased')
 
+    """
     captioning_model.load_state_dict(
         torch.load(
             os.path.join(base_dir, 'captioning', 'checkpoints', 'B_256_LR_0.0004_CHKP_EPOCH_2.pth')))
+    """
 
     gpt2_model.load_state_dict(
         torch.load(
@@ -71,28 +65,33 @@ def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
     print('Checkpoints loaded in RAM')
 
     data = {
-        'captioning': {
-            'dataset': captioning_dataset_ts,
-            'vocab_size': len(captioning_dataset_ts.word_map),
-            'stop_word': captioning_dataset_ts.word_map['<end>'],
-            'model': captioning_model
-        },
+        # 'captioning': {
+        #  'dataset': captioning_dataset_ts,
+        # 'vocab_size': len(captioning_dataset_ts.word_map),
+        # 'stop_word': captioning_dataset_ts.word_map['<end>'],
+        # 'model': captioning_model
+        # },
         'gpt2': {
             'dataset': gpt2_dataset_ts,
             'vocab_size': len(gpt2.gpt2_tokenizer),
+            'decode_fn' : lambda pred: nltk.word_tokenize(gpt2.gpt2_tokenizer.decode(pred)),
             'stop_word': gpt2.gpt2_tokenizer.eos_token_id,
             'model': gpt2_model
         },
         'bert': {
             'dataset': bert_dataset_ts,
             'vocab_size': len(bert.bert_tokenizer),
+            'decode_fn': lambda pred: nltk.word_tokenize(bert.bert_tokenizer.decode(pred)),
             'stop_word': bert.bert_tokenizer.sep_token_id,
             'model': bert_model
         }
     }
 
     # Make sure we are evaluating across the same exact samples
-    assert sanity.cross_dataset_similarity(captioning_dataset_ts, gpt2_dataset_ts, bert_dataset_ts)
+    assert sanity.cross_dataset_similarity(
+        # captioning_dataset_ts,
+        gpt2_dataset_ts,
+        bert_dataset_ts)
     print('Cross similarity check passed: all datasets contain the same elements.')
 
     return data
@@ -108,14 +107,15 @@ def evaluate(data):
     for model_name, parameters in data.items():
         print('Evaluating {}'.format(model_name))
 
-        for k in [1, 2]:
+        for k in [1]:
             bleu, _, _ = compute_corpus_bleu(
                 model=parameters['model'],
                 dataset=parameters['dataset'],
+                decode_fn=parameters['decode_fn'],
                 vocab_size=parameters['vocab_size'],
                 beam_size=k,
                 stop_word=parameters['stop_word'],
-                max_len=10
+                max_len=10,
             )
             results['beam_size'].append(k)
             results['model'].append(model_name)

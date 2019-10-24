@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from utilities.evaluation.beam_search import beam_search
 from datasets.creator import MultiPurposeDataset
 from tqdm import tqdm
-
+import random
 
 def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_size, beam_size, stop_word, max_len,
                         device='cuda'):
@@ -32,9 +32,7 @@ def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_si
 
 
     print('Decoding & NLTK encoding predictions with the provided tokenizer..')
-    predictions = map
-    for i, pred in enumerate(tqdm(predictions)):
-        predictions[i] = decode_fn(pred)
+    predictions = list(map(decode_fn, predictions))
 
     # Compute BLEU score
     print('Computing BLEU score..')
@@ -44,6 +42,12 @@ def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_si
     score = corpus_bleu(references, predictions, smoothing_function=smf.method1, weights=(1, 0, 0, 0))
 
     print('BLEU = {}'.format(score))
+
+    print('Random prediction & truths:')
+    i = random.randint(0, len(predictions))
+    print('Prediction', predictions[i])
+    for t in references[i]:
+        print('Reference', t)
 
     return score, predictions, references
 

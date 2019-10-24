@@ -85,12 +85,11 @@ class CaptioningBeamSearchInput(BeamSearchInput):
 
 class CaptionDataset(MultiPurposeDataset):
     def __init__(self, location, split='training', maxlen=None, evaluating=False):
+        super(CaptionDataset, self).__init__(location, split, maxlen, evaluating)
 
         word_map_file = resources_path(location, 'wordmap.json')
         with open(word_map_file, 'r') as j:
             self.word_map = json.load(j)
-
-        super(MultiPurposeDataset, self).__init__(location, split, maxlen, evaluating)
 
     def __getitem__(self, item):
 
@@ -109,20 +108,13 @@ class CaptionDataset(MultiPurposeDataset):
                    image, \
                    torch.tensor(length).long()
         else:
-            return __id, \
-                   torch.tensor([self.word_map['<start>']]).long(), \
-                   image, \
-                   torch.tensor(length).long()
+            start = torch.tensor([self.word_map['<start>']]).long()
+            image = image
+            length = torch.tensor(length).long()
 
-    def evaluation_data(self, device, *item):
-        args = list(item)[1:]
-        for i, it in enumerate(args):
-            args[i] = it.to(device)
-
-        beam_input = CaptioningBeamSearchInput(seq_idx=1, logits_idx=1, *args)
-        ground_truths = self.evaluation_data[str(item[0])]
-
-        return beam_input, ground_truths
+            beam_input = CaptioningBeamSearchInput(1, 1, start, image, length)
+            ground_truths = self.evaluation_data[str(__id)]
+            return beam_input, ground_truths
 
 
 if __name__ == '__main__':
