@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     # Load testing dataset in RAM
     ts_dataset = VGGPT2Dataset(location=os.path.join(model_basepath, 'data'), split='testing', evaluating=True,
-                               maxlen=50)
+                               maxlen=20000)
 
     # Create a specific data loader that returns equal batch for bleu evaluation.
     # loader = DataLoader(dataset=ts_dataset, shuffle=True, batch_size=10, pin_memory=True, num_workers=4)
