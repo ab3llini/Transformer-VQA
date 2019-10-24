@@ -10,7 +10,7 @@ import torch.backends.cudnn as cudnn
 import torch.utils.data
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from models.baseline.captioning.model import Encoder, DecoderWithAttention
+from models.baseline.captioning.model import CaptioningModel
 from datasets.captioning import CaptionDataset
 from models.baseline.captioning.utils import *
 from torch.utils.tensorboard import SummaryWriter
@@ -37,27 +37,6 @@ best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
-
-
-class CaptioningModel(nn.Module):
-    def __init__(self, attention_dim, embed_dim, decoder_dim, word_map, dropout):
-        super(CaptioningModel, self).__init__()
-        self.decoder = DecoderWithAttention(attention_dim=attention_dim,
-                                            embed_dim=embed_dim,
-                                            decoder_dim=decoder_dim,
-                                            vocab_size=len(word_map),
-                                            dropout=dropout)
-        self.encoder = Encoder()
-        self.encoder.fine_tune(False)
-
-        # Move to GPU, if available
-        self.decoder = self.decoder.to(device)
-        self.encoder = self.encoder.to(device)
-
-    def forward(self, caps, imgs, caplens):
-        imgs = self.encoder(imgs)
-        scores, caps_sorted, decode_lengths, alphas, sort_ind = self.decoder(imgs, caps, caplens)
-        return imgs, scores, caps_sorted, decode_lengths, alphas, sort_ind
 
 
 def loss_fn(out, batch):

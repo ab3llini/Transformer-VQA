@@ -22,26 +22,25 @@ def embed(tokenizer, text):
     return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text))
 
 
-def load_image(base_path, image_id):
+def load_image(image_rel_path):
     """
     Loads an image using PIL library
-    :param base_path: image base path. Returned by get_data_paths
-    :param image_id: image id
+    :param image_rel_path: Image relative path
     :return: PIL image
     """
-    return Image.open(base_path + str(image_id).zfill(12) + '.jpg')
+    return Image.open(get_image_path(image_rel_path))
 
 
-def get_image_path(base_path, image_id):
+def get_image_path(image_rel_path):
     """
-    :param base_path: image base path. Returned by get_data_paths
-    :param image_id: image id
-    :return: PIL image
+    :param image_rel_path: Image relative path
+    :return: Image path
     """
-    return base_path + str(image_id).zfill(12) + '.jpg'
+
+    return os.path.join(data_path('vqa', 'Images'), image_rel_path)
 
 
-def transform_image(image, size=224):
+def resize_image(image, size=224):
     """
     Resize, normalizes and transform to tensor a PIL image fot VGG compatibility
     :param image: the PIL image to transform
@@ -51,7 +50,22 @@ def transform_image(image, size=224):
         raise Exception('Grayscale detection')
 
     transform = transforms.Compose([
-        transforms.RandomResizedCrop(size),
+        transforms.RandomResizedCrop(size)
+    ])
+
+    return transform(image)
+
+
+def normalized_tensor_image(image):
+    """
+    Resize, normalizes and transform to tensor a PIL image fot VGG compatibility
+    :param image: the PIL image to transform
+    :return: a tensor containing the transformed image (3x224x224)
+    """
+    if image.mode != 'RGB':
+        raise Exception('Grayscale detection')
+
+    transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -59,14 +73,13 @@ def transform_image(image, size=224):
     return transform(image)
 
 
-def check_rgb(base_path, image_id):
+def check_rgb(image_rel_path):
     """
     Check whether or not the image is RGB
-    :param base_path: image base path. Returned by get_data_paths
-    :param image_id: image id
+    :param image_rel_path: rel img path
     :return: Boolean
     """
-    return load_image(base_path, image_id).mode == 'RGB'
+    return load_image(image_rel_path).mode == 'RGB'
 
 
 def get_qai(qa_object, vqa_helper):
@@ -96,8 +109,6 @@ def get_data_paths(data_type='train'):
     with open(os.path.join(this_folder, 'structure.json')) as fp:
         structure = json.load(fp)
 
-    data_dir = data_path('vqa')
-
     # Loading strings
     v = structure['version']
     t = structure['task']
@@ -109,9 +120,11 @@ def get_data_paths(data_type='train'):
         'i': structure['path']['images']
     }
 
+    data_dir = data_path('vqa')
+
     q = p['q'].format(data_dir, v, t, d, o)
     a = p['a'].format(data_dir, v, d, o)
-    i = p['i'].format(data_dir, o, o)
+    i = p['i'].format(o, o)
 
     return q, a, i
 

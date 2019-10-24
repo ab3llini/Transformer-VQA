@@ -7,77 +7,69 @@ sys.path.append(root_path)
 
 import torch
 from utilities.vqa.dataset import *
-from datasets.creator import VADatasetCreator
+from datasets.creator import DatasetCreator, MultiPurposeDataset
 from torch.utils.data import Dataset
 import nltk
 from collections import Counter
-from utilities.evaluation.beam_search import BeamSearchInput, BeamSearchDataset
+from utilities.evaluation.beam_search import BeamSearchInput
 
 
-class CaptioningDatasetCreator(VADatasetCreator):
-    def __init__(self, wordmap_location, tr_size=None, ts_size=None, generation_seed=None, min_word_freq=50):
-        super().__init__(tr_size, ts_size, generation_seed)
-        self.wordmap_location = wordmap_location
-        self.min_word_freq = min_word_freq
+def create_datasets(base_path, min_word_freq=50):
+    word_freq = Counter()
+    word_map = {}
 
-    def embed_fn(self, text):
-        """
-        Embeds a text sequence using NLTK tokenizer
-        :param text: text to be embedded
-        :return: embedded sequence + length
-        """
-        tkn = nltk.word_tokenize(text)
-        return tkn, len(tkn)
+    longest_answer = {'training': 0, 'testing': 0}
 
-    def process(self, candidates_tr, candidates_ts):
+    def elem_processing_fn(question_id, question, image_path, answer, split):
+        answer_tkn = nltk.word_tokenize(answer)  # We pick always the first answer
+        word_freq.update(answer_tkn)  # Update word frequency counts
+        answer_tkn_len = len(answer_tkn)
 
-        word_freq = Counter()
-        longest_tr, longest_ts = [0], [0]
+        if longest_answer[split] < answer_tkn_len:
+            longest_answer[split] = answer_tkn_len
 
-        # Create embeddings
-        print('Processing..')
-        for candidates, longest in [[candidates_tr, longest_tr], [candidates_ts, longest_ts]]:
-            for i, sample in tqdm(enumerate(candidates)):
-                if longest[0] < sample[self.tkn_a_len_idx]:
-                    longest[0] = sample[self.tkn_a_len_idx]
-                    print('New longest = {}'.format(longest[0]))
-                # Compute word frequencies
-                word_freq.update(sample[self.tkn_a_idx])
+        return [question_id, answer_tkn, image_path]
 
-            # Account for start & stop tokens added!!
-            longest[0] += 2
+    def post_processing_fn(tr_data, ts_data):
 
         # Create word map
-        words = [w for w in word_freq.keys() if word_freq[w] > self.min_word_freq]
+        words = [w for w in word_freq.keys() if word_freq[w] > min_word_freq]
         word_map = {k: v + 1 for v, k in enumerate(words)}
         word_map['<unk>'] = len(word_map) + 1
         word_map['<start>'] = len(word_map) + 1
         word_map['<end>'] = len(word_map) + 1
         word_map['<pad>'] = 0
 
-        # Add start, stop & unk tokens
-        for candidates in [candidates_tr, candidates_ts]:
-            for i, sample in tqdm(enumerate(candidates)):
-                sample[self.tkn_a_idx] = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in
-                                                                  sample[self.tkn_a_idx]] + [
-                                             word_map['<end>']]
-                # Update length
-                sample[self.tkn_a_len_idx] = len(sample[self.tkn_a_idx])
+        print('Adding special tokens to training set..')
+        for i, sample in enumerate(tqdm(tr_data)):
+            sample[1] = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in
+                                                 sample[1]] + [word_map['<end>']]
+
+        print('Adding special tokens to testing set..')
+        for i, sample in enumerate(tqdm(ts_data)):
+            sample[1] = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in
+                                                 sample[1]] + [word_map['<end>']]
 
         # Pad sequences
-        print('Padding sequences')
-        if self.size_tr != -1:
-            candidates_tr = self.pad_sequences(candidates_tr, axis=self.tkn_a_idx, value=word_map['<pad>'],
-                                               maxlen=longest_tr[0])
-        if self.size_ts != -1:
-            candidates_ts = self.pad_sequences(candidates_ts, axis=self.tkn_a_idx, value=word_map['<pad>'],
-                                               maxlen=longest_ts[0])
+        print('Padding training sequences..')
+        tr_data = DatasetCreator.pad_sequences(tr_data, axis=1, value=word_map['<pad>'],
+                                               maxlen=longest_answer['training'] + 2)
 
-        # Save word map to a JSON
-        with open(os.path.join(self.wordmap_location, 'wordmap.json'), 'w') as j:
+        # Pad sequences
+        print('Padding testing sequences..')
+        ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=word_map['<pad>'],
+                                               maxlen=longest_answer['testing'] + 2)
+
+        print('Dumping word map..')
+        with open(os.path.join(base_path, 'wordmap.json'), 'w') as j:
             json.dump(word_map, j)
 
-        return candidates_tr, candidates_ts
+        return tr_data, ts_data
+
+    DatasetCreator().create_together(tr_size=1000000, ts_size=200000,
+                                     tr_destination=os.path.join(base_path, 'training'),
+                                     ts_destination=os.path.join(base_path, 'testing'),
+                                     elem_processing_fn=elem_processing_fn, post_processing_fn=post_processing_fn)
 
 
 class CaptioningBeamSearchInput(BeamSearchInput):
@@ -88,66 +80,51 @@ class CaptioningBeamSearchInput(BeamSearchInput):
         out = self.model(*running_args)
         running_args[2] = running_args[2] + 1
         args[2] = args[2] + 1
-        return out[self.logits_idx]
+        return out[self.logits_idx], out
 
 
-class CaptionDataset(BeamSearchDataset):
-    def __init__(self, directory, name, maxlen=None, split='train'):
-        try:
-            with open(os.path.join(directory, name), 'rb') as fd:
-                self.data = pickle.load(fd)
-            # Get image path
-            _, _, self.i_path = get_data_paths(data_type=split)
-            self.maxlen = maxlen if maxlen is not None else len(self.data)
-            self.split = split
-            word_map_file = resources_path(directory, 'wordmap.json')
-            with open(word_map_file, 'r') as j:
-                self.word_map = json.load(j)
-            print('Data loaded successfully.')
+class CaptionDataset(MultiPurposeDataset):
+    def __init__(self, location, split='training', maxlen=None, evaluating=False):
 
-            for e in range(len(self.data) - 1):
-                assert self.data[e].shape == self.data[e + 1].shape
+        word_map_file = resources_path(location, 'wordmap.json')
+        with open(word_map_file, 'r') as j:
+            self.word_map = json.load(j)
 
-            print('Sanity check passed.')
-
-        except (OSError, IOError) as e:
-            print('Unable to load data. Did you build it first?', str(e))
-
-    def get_image(self, image_id):
-        return load_image(self.i_path, image_id)
+        super(MultiPurposeDataset, self).__init__(location, split, maxlen, evaluating)
 
     def __getitem__(self, item):
 
         sample = self.data[item]
+        if not self.evaluating:
+            _, answer, image_path = sample
+        else:
+            __id, answer, image_path = sample
+        image = load_image(image_rel_path=image_path)
+        image = normalized_tensor_image(resize_image(image, size=256))
+        length = len(answer)
 
-        identifier = sample[0]
-        image = transform_image(self.get_image(sample[1]), 256)
-        caption = torch.tensor(sample[2]).long()
-        length = torch.tensor([sample[3]]).long()
+        if not self.evaluating:
+            # Return answer + image + length
+            return torch.tensor(answer).long(), \
+                   image, \
+                   torch.tensor(length).long()
+        else:
+            return __id, \
+                   torch.tensor([self.word_map['<start>']]).long(), \
+                   image, \
+                   torch.tensor(length).long()
 
-        return identifier, caption, image, length
+    def evaluation_data(self, device, *item):
+        args = list(item)[1:]
+        for i, it in enumerate(args):
+            args[i] = it.to(device)
 
-    def __len__(self):
-        return self.maxlen
+        beam_input = CaptioningBeamSearchInput(seq_idx=1, logits_idx=1, *args)
+        ground_truths = self.evaluation_data[str(item[0])]
 
-    def get_bleu_inputs(self, model, batch, device):
-        start = torch.tensor([self.word_map['<start>']]).long().to(device)
-        cap_len = torch.tensor([2]).long().to(device)
-        image = batch[2][0].to(device)
-        beam_search_input = CaptioningBeamSearchInput(model, 0, 1, start, image, cap_len)
-        ground_truths = []
-        for seq, seq_len in zip(batch[1], batch[3]):
-            ground_truths.append(seq[1:seq_len - 1].tolist())
-
-        return beam_search_input, ground_truths
-
-
-def create(tr_size=1000000, ts_size=100000):
-    nltk.download('punkt')
-    destination = resources_path('models', 'baseline', 'captioning', 'data')
-    dsc = CaptioningDatasetCreator(destination, tr_size=tr_size, ts_size=ts_size, generation_seed=555)
-    dsc.create(destination)
+        return beam_input, ground_truths
 
 
 if __name__ == '__main__':
-    create()
+    path = resources_path('models', 'baseline', 'captioning', 'data')
+    create_datasets(path)

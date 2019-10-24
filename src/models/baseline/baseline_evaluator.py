@@ -11,7 +11,7 @@ from utilities import paths
 import torch
 import models.baseline.captioning.train as modelling_caption
 from transformers import GPT2LMHeadModel, BertForMaskedLM
-from utilities.evaluation.evaluate import compute_bleu
+from utilities.evaluation.evaluate import compute_corpus_bleu
 import seaborn as sns;
 
 sns.set()
@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def prepare_data(base_dir):
+def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
     captioning_dataset_ts = captioning.CaptionDataset(
         directory=os.path.join(base_dir, 'captioning', 'data'),
         name='testing.pk',
@@ -102,14 +102,14 @@ def evaluate(data):
     results = {
         "beam_size": [],
         "model": [],
-        "BLEU": []
+        "BLEU1": []
     }
 
     for model_name, parameters in data.items():
         print('Evaluating {}'.format(model_name))
 
-        for k in [1, 2, 3, 5, 10, 20]:
-            bleu, _, _ = compute_bleu(
+        for k in [1, 2]:
+            bleu, _, _ = compute_corpus_bleu(
                 model=parameters['model'],
                 dataset=parameters['dataset'],
                 vocab_size=parameters['vocab_size'],
@@ -119,11 +119,11 @@ def evaluate(data):
             )
             results['beam_size'].append(k)
             results['model'].append(model_name)
-            results['BLEU'].append(bleu)
+            results['BLEU1'].append(bleu)
 
     results = pd.DataFrame(results)
     sns.set_style("darkgrid")
-    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU", hue="model", style="model", markers=["o"] * len(data),
+    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU1", hue="model", style="model", markers=["o"] * len(data),
                         data=results)
     plt.show()
     return plot.figure, results
@@ -136,5 +136,5 @@ if __name__ == '__main__':
 
     # Save files
     SAVE_DIR = paths.resources_path('results', 'baseline')
-    plot.savefig(os.path.join(SAVE_DIR, 'bleu.png'))
-    results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
+    plot.savefig(os.path.join(SAVE_DIR, 'bleu1.png'))
+    results.to_csv(os.path.join(SAVE_DIR, 'results_bleu1.csv'))

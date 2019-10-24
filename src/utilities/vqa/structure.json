@@ -9,6 +9,6 @@
   "path" : {
     "questions" : "{}/Questions/{}{}_{}_{}_questions.json",
     "answers" : "{}/Annotations/{}{}_{}_annotations.json",
-    "images" : "{}/Images/{}/COCO_{}_"
+    "images" : "{}/COCO_{}_"
   }
 }

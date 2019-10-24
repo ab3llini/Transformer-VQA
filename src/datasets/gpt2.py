@@ -8,16 +8,16 @@ sys.path.append(root_path)
 import torch
 from utilities.vqa.dataset import *
 from transformers import GPT2Tokenizer
-from datasets.creator import QADatasetCreator
+from datasets.creator import DatasetCreator
 from torch.utils.data import Dataset
-from utilities.evaluation.beam_search import BeamSearchInput, BeamSearchDataset
+from utilities.evaluation.beam_search import BeamSearchInput
 
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 gpt2_tokenizer.add_special_tokens(
     {'pad_token': '<pad>', 'bos_token': '<bos>', 'eos_token': '<eos>', 'sep_token': '<sep>'})
 
 
-class GPT2DatasetCreator(QADatasetCreator):
+class GPT2DatasetCreator():
     def __init__(self, tokenizer=None, tr_size=None, ts_size=None, generation_seed=None):
         super().__init__(tr_size, ts_size, generation_seed)
 
@@ -83,7 +83,7 @@ class GPT2DatasetCreator(QADatasetCreator):
         return candidates_tr, candidates_ts
 
 
-class GPT2Dataset(BeamSearchDataset):
+class GPT2Dataset():
     """
     This is a dataset specifically crafted for GPT2 models
     """

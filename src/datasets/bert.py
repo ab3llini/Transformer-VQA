@@ -8,14 +8,14 @@ sys.path.append(root_path)
 import torch
 from utilities.vqa.dataset import *
 from transformers import BertTokenizer
-from datasets.creator import QADatasetCreator
+from datasets.creator import DatasetCreator
 from torch.utils.data import Dataset
-from utilities.evaluation.beam_search import BeamSearchInput, BeamSearchDataset
+from utilities.evaluation.beam_search import BeamSearchInput
 
 bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 
-class BertDatasetCreator(QADatasetCreator):
+class BertDatasetCreator():
     def __init__(self, tokenizer=None, tr_size=None, ts_size=None, generation_seed=None):
         super().__init__(tr_size, ts_size, generation_seed)
 
@@ -99,10 +99,10 @@ class BertBeamSearchInput(BeamSearchInput):
             [running_args[self.seg_id], torch.ones(running_args[self.seg_id].shape[0], 1).long().to('cuda')], dim=1)
 
         args[self.seg_id] = torch.cat([args[self.seg_id], torch.ones(1).long().to('cuda')])
-        return out[self.logits_idx]
+        return out[self.logits_idx], out
 
 
-class BertDataset(BeamSearchDataset):
+class BertDataset():
     """
     This is a dataset specifically crafted for BERT models
     """

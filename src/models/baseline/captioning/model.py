@@ -212,3 +212,24 @@ class DecoderWithAttention(nn.Module):
             alphas[:batch_size_t, t, :] = alpha
 
         return predictions, encoded_captions, decode_lengths, alphas, sort_ind
+
+
+class CaptioningModel(nn.Module):
+    def __init__(self, attention_dim, embed_dim, decoder_dim, word_map, dropout):
+        super(CaptioningModel, self).__init__()
+        self.decoder = DecoderWithAttention(attention_dim=attention_dim,
+                                            embed_dim=embed_dim,
+                                            decoder_dim=decoder_dim,
+                                            vocab_size=len(word_map),
+                                            dropout=dropout)
+        self.encoder = Encoder()
+        self.encoder.fine_tune(False)
+
+        # Move to GPU, if available
+        self.decoder = self.decoder.to(device)
+        self.encoder = self.encoder.to(device)
+
+    def forward(self, caps, imgs, caplens):
+        imgs = self.encoder(imgs)
+        scores, caps_sorted, decode_lengths, alphas, sort_ind = self.decoder(imgs, caps, caplens)
+        return imgs, scores, caps_sorted, decode_lengths, alphas, sort_ind

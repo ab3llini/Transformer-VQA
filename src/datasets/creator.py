@@ -3,334 +3,287 @@ import os
 from collections import Counter
 
 this_path = os.path.dirname(os.path.realpath(__file__))
-root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir))
 sys.path.append(root_path)
 
 from utilities.vqa.dataset import *
 import keras.preprocessing as k_preproc
 import random
+import json
+import nltk
+from torch.utils.data import Dataset
 
 
-class TrainingDatasetCreator:
-    def __init__(self, size_tr=None, size_ts=None, generation_seed=None, visual=True, question=True):
-        """
-        Creates a task specific dataset.
-        The items in the dataset depend not oly on the seed but even on the embed function.
-        :param size_tr: Size of the training set
-        :param size_ts: Size of the testing set
-        :param generation_seed: Random seed
-        :param visual: Visual modality selector
-        :param question: Question modality selector
-        """
+class DatasetCreator:
 
-        # Save split sizes
-        self.size_tr = size_tr
-        self.size_ts = size_ts
+    def __init__(self, max_answers_per_question=4):
+        self.max_answers_per_question = max_answers_per_question
 
-        # Save the generation seed
-        self.generation_seed = generation_seed
+    @staticmethod
+    def __load_cached(split):
+        assert split in ['training', 'testing'], Exception('Undefined split in load_cached arg')
 
-        # Modalities
-        self.visual = visual
-        self.question = question
-
-        # Set the seed
-        if self.generation_seed is not None:
-            random.seed(self.generation_seed)
-
-        # Load in RAM the samples using the VQA helper tools and our path parser.
-        self.q_path_tr, self.a_path_tr, self.i_path_tr = get_data_paths(data_type='train')
-        self.q_path_ts, self.a_path_ts, self.i_path_ts = get_data_paths(data_type='test')
-
-        # Create the helpers
-        self.vqa_helper_tr = VQA(self.a_path_tr, self.q_path_tr)
-        self.vqa_helper_ts = VQA(self.a_path_ts, self.q_path_ts)
-
-        # Get all the question/answer objects
-        self.qa_objects_tr = self.vqa_helper_tr.loadQA(self.vqa_helper_tr.getQuesIds())
-        self.qa_objects_ts = self.vqa_helper_ts.loadQA(self.vqa_helper_ts.getQuesIds())
-
-    def get_training_candidates(self, qa_objects, vqa_helper, image_paths):
-        candidates = []
-        if self.size_tr == -1:
-            return candidates
-        print('Building auxiliary training candidate structures..')
-        # Skip if image is not RGB
-        for qa_object in tqdm(qa_objects):
-
-            # Parse object
-            obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
-            if not check_rgb(image_paths, obj_i):
-                continue
-
-            # Embed the question
-            q_embed, q_embed_len = self.embed_fn(obj_q)
-
-            # Performance booster.
-            prev_a = None
-            prev_a_emb = None
-            prev_a_emb_len = None
-            # Every question has 10 answers
-            for obj_a in obj_as:
-                # Try to skip embedding if possible and use cached version
-                if obj_a != prev_a:
-                    # Embed the question and answer
-                    a_embed, a_embed_len = self.embed_fn(obj_a)
-                    prev_a = obj_a
-                    prev_a_emb = a_embed
-                    prev_a_emb_len = a_embed_len
-
-                # Add sample
-                candidates.append([obj_id, q_embed, q_embed_len, obj_i, prev_a_emb, prev_a_emb_len])
-
-        return candidates
-
-    def get_testing_candidates(self, qa_objects, vqa_helper, image_paths, axes):
-        candidates = {}
-        if self.size_ts == -1:
-            return candidates
-        print('Building auxiliary testing candidate structures..')
-        # Skip if image is not RGB
-        for qa_object in tqdm(qa_objects):
-            # Parse object
-            obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
-            if not check_rgb(image_paths, obj_i):
-                continue
-
-            # Embed the question
-            q_embed, q_embed_len = self.embed_fn(obj_q)
-
-            # Performance booster.
-            prev_a = None
-            prev_a_emb = None
-            prev_a_emb_len = None
-            # Every question has 10 answers
-            for obj_a in obj_as:
-                # Try to skip embedding if possible and use cached version
-                if obj_a != prev_a:
-                    # Embed the question and answer
-                    a_embed, a_embed_len = self.embed_fn(obj_a)
-                    prev_a = obj_a
-                    prev_a_emb = a_embed
-                    prev_a_emb_len = a_embed_len
-
-                new = np.array([obj_id, q_embed, q_embed_len, obj_i, prev_a_emb, prev_a_emb_len])
-
-                # Add sample
-                if obj_id not in candidates:
-                    candidates[obj_id] = [new[axes]]
-                else:
-                    candidates[obj_id].append(new[axes])
-
-        return candidates
-
-    def create_candidates(self, axes):
-        """
-        This method iterates over each single element in the dataset.
-        :return: A list of candidates in the form:
-        [id, tkn question, tkn question len, image id, tkn answer, tkn answer len]
-        """
-
-        candidates_tr = self.get_training_candidates(self.qa_objects_tr, self.vqa_helper_tr, self.i_path_tr)
-        candidates_ts = self.get_testing_candidates(self.qa_objects_ts, self.vqa_helper_ts, self.i_path_ts, axes)
-
-        candidates_tr, candidates_ts = np.array(candidates_tr), candidates_ts
-
-        if self.size_tr != -1:
-            # Preliminary filtering operation on training set.
-            # This reduces the input size dramatically
-            # Minimum threshold
-            min_candidates_per_len = 1000
-
-            # Pre filtering of short candidates. Only for training.
-            len_counter = Counter()
-            len_positions = {}
-            # First scan to init filtering counters
-            for idx, sample in enumerate(candidates_tr):
-                tot_len = sample[2] + sample[5]
-                len_counter[tot_len] += 1
-                if tot_len not in len_positions:
-                    len_positions[tot_len] = [idx]
-                else:
-                    len_positions[tot_len].append(idx)
-
-            # Now we remove all the samples above the threshold
-            # But if we have, say, 50 samples long 20 and 1M samples long 21
-            # we keep these 50 samples since we'll have to pad anyway up to 21
-            sorted_lengths = sorted(list(len_counter.keys()), reverse=True)
-            to_remove = []
-
-            for length in sorted_lengths:
-                if len_counter[length] < min_candidates_per_len:
-                    # Remove all these samples
-                    to_remove.append(length)
-                else:
-                    break
-
-            remove_indices = []
-            for length in to_remove:
-                remove_indices += len_positions[length]
-
-            print('Will remove all samples which Q+A len in {} ({} indices)'.format(to_remove, len(remove_indices)))
-            candidates_tr = np.delete(candidates_tr, obj=remove_indices, axis=0)
-            candidates_tr = candidates_tr[:, axes]
-
-        return candidates_tr, candidates_ts
-
-    def select_candidate_modalities(self):
-        """
-        Selects the desired modalities (Visual, Question, Answer) across all candidates
-        :return: A list of candidates with the requested modalities
-        """
-
-        if self.visual and self.question:
-            axes = [0, 1, 2, 3, 4, 5]  # VQA
-        elif self.visual and not self.question:
-            axes = [0, 3, 4, 5]  # VA
-        elif self.question and not self.visual:
-            axes = [0, 1, 2, 4, 5]  # QA
+        path = data_path('cache', '{}.json'.format(split))
+        if os.path.exists(path):
+            print('{} cache found'.format(split))
+            with open(path, 'r') as fp:
+                cache = json.load(fp)
         else:
-            axes = [0, 4, 5]  # A
+            print('{} cache not found'.format(split))
+            cache = None
+        return cache
 
-        candidates_tr, candidates_ts = self.create_candidates(axes)
+    def __build(self, split, size):
+        assert split in ['training', 'testing'], Exception('Undefined split in build arg')
 
-        return candidates_tr, candidates_ts
+        print('Building {} cache, size: {}'.format(split, size))
+        question_path, annotation_path, image_path = get_data_paths(
+            data_type='train' if split == 'training' else 'test')
+        vqa_helper = VQA(annotation_path, question_path)
+        qa_objects = vqa_helper.loadQA(vqa_helper.getQuesIds())
 
-    def filter_candidates(self, candidates_tr, candidates_ts):
-        """
-        This method filters out candidates according to a default criterion which selects first
-        those candidates whose annotation is longer up to the limit size.
-        You can, and are advised to, override this method whenever needed for custom filtering.
-        Just make sure to return the data in the correct way
-        :return: A tuple of candidates (tr & ts) whose size must match the specified vqa in the init method
-        """
+        l_qa = len(qa_objects)
+        max_size = l_qa * self.max_answers_per_question
+        assert size <= max_size, Exception(
+            'Size ({}) should be at maximum {} ({} * {})'.format(size, max_size, l_qa, self.max_answers_per_question))
 
-        # Sanity check
-        if self.size_tr is not None:
-            assert self.size_tr <= len(candidates_tr)
-        if self.size_ts is not None:
-            assert self.size_ts <= len(candidates_ts) * 10
+        cache = []
+        question_answer_map = {}
+        sequence_len_counter = Counter()
 
-        filtered_tr, filtered_ts = [], []
+        # Skip if image is not RGB
+        for qa_object in tqdm(qa_objects):
 
-        # Get the indices of the K candidates whose answer length is longest
-        # K = size (either tr or ts)
-        for split, (candidates, filtered, size) in enumerate([[candidates_tr, filtered_tr, self.size_tr],
-                                                              [candidates_ts, filtered_ts, self.size_ts]]):
-
-            # Skip if we do not need to rebuild:
-            if size == -1:
+            # Parse object
+            obj_id, obj_q, obj_as, obj_i = get_qai(qa_object, vqa_helper)
+            q_tkn_len = len(nltk.word_tokenize(obj_q))
+            image_full_path = image_path + str(obj_i).zfill(12) + '.jpg'
+            if not check_rgb(image_full_path):
                 continue
+            # Performance booster.
+            prev_a = None
+            prev_a_tkn = None
+            prev_a_tkn_len = None
+            # Every question has 10 answers
+            for obj_a in obj_as:
+                # Try to skip tokenizing if possible and use cached version
+                if obj_a != prev_a:
+                    # Embed the question and answer
+                    a_tkn = nltk.word_tokenize(obj_a)
+                    a_tkn_len = len(a_tkn)
+                    prev_a = obj_a
+                    prev_a_tkn = a_tkn
+                    prev_a_tkn_len = a_tkn_len
 
-            if size is None:
-                filtered[:] = candidates
-                continue
+                if split == 'testing':
+                    # Update the question answer map
+                    if obj_id not in question_answer_map:
+                        question_answer_map[obj_id] = [prev_a_tkn]
+                    else:
+                        question_answer_map[obj_id].append(prev_a_tkn)
 
-            if split == 0:  # Training set
-                # Reset random seed
-                np.random.seed(self.generation_seed)
-                np.random.shuffle(candidates)
+                # Update the sequence len counter
+                sequence_len_counter.update([q_tkn_len + prev_a_tkn_len])
 
-                # Note: candidates[: -1] returns the length of the tokenized answer at that row
-                longest_answers_indices = np.argpartition(candidates[:, -1], -size)[-size:]
-                # Select only the longest answers
-                filtered[:] = candidates[longest_answers_indices]
+                # Add sample to cache
+                cache.append([int(obj_id), obj_q, image_full_path, prev_a, q_tkn_len, prev_a_tkn_len])
+
+            # if len(cache) > 10000:
+            # break
+
+        print('Removing elements whose sequence length frequency count is under 1000')
+        # Now we remove all the samples above the threshold
+        # But if we have, say, 50 samples long 20 and 1M samples long 21
+        # we keep these 50 samples since we'll have to pad anyway up to 21
+        sorted_lengths = sorted(list(sequence_len_counter.keys()), reverse=True)
+        bad_lengths = []
+
+        for length in sorted_lengths:
+            if sequence_len_counter[length] < 1000:
+                # Remove all these samples
+                bad_lengths.append(length)
             else:
-                # Testing set should be equal across all dataset with same seed
-                # Here we select randomly 1/10 ts size of question ids and come up with the testing set.
-                # In the testing set we are interested in having all the annotations for each question to compute the
-                # BLEU score
+                break
 
-                # Reset random seed
-                np.random.seed(self.generation_seed)
-                all_question_ids = list(candidates.keys())
-                rand_question_ids = np.random.choice(all_question_ids, size=int(size / 10), replace=False)
-                print(
-                    'Ok so, we have randomly saelected {} question ids, the ts dics contains {} keys (each 10 elements)'.format(
-                        len(rand_question_ids), len(candidates_ts)))
-                print('Creating filtered testing set..')
-                for question_id in tqdm(rand_question_ids):
-                    filtered.extend(candidates_ts[question_id])
-                print('Filtered now contains {} elements'.format(len(filtered)))
+        print('Will remove elements whose question + answer is in {}'.format(bad_lengths))
 
-        return filtered_tr, filtered_ts
+        cache = list(filter(lambda o: o[-2] + o[-1] not in bad_lengths, cache))
+        # Switch to numpy
+        cache = np.array(cache, dtype=np.object)
+        cache = cache.astype(object)
+        cache[:, 0] = cache[:, 0].astype(np.int)
 
-    def embed_fn(self, text):
-        """
-        Function that tokenizes text. Must return a tuple (tokenized text, len)
-        This function is task specific and MUST be overwritten
-        :param text: text to be embedded
-        :return: (embedded text, embedded text length)
-        """
-        return None, None
+        data = []
 
-    def process(self, candidates_tr, candidates_ts):
-        """
-        This method is task specific.
-        This method is called right after building the dataset to further process candidates
-        Overwrite it to achieve custom processing
-        :param candidates_tr: unprocessed candidates
-        :param candidates_ts: unprocessed candidates
-        :return: processed candidates
-        """
-        return candidates_tr, candidates_ts
+        question_counter = Counter()
 
-    @staticmethod
-    def save(candidates, location):
-        print('Saving dataset to {}'.format(location))
-        with open(location, 'wb') as fd:
-            pickle.dump(candidates, fd)
+        # Build a dataset keeping first the sequences with the longest answers
+        # At the same time make sure not to have more than
+        # First we sort the cache in descending order looking at the answer length
+        cache = cache[(-cache[:, -1]).argsort()]
+        # The we scan it sequentially and build the dataset
+        for idx, elem in enumerate(tqdm(cache)):
+            if len(data) >= size:
+                if question_counter[elem[0]] == 0:
+                    if split == 'testing':
+                        if elem[0] in question_answer_map:
+                            del question_answer_map[elem[0]]
+            else:
+                if question_counter[elem[0]] < self.max_answers_per_question:
+                    data.append(elem[:-2].tolist())  # Remove lengths
+                    question_counter.update([elem[0]])
 
-    def build(self):
-        """
-        Builds the candidates list, selects the modalities and applies basic filtering.
-        :return:
-        """
-        candidates = self.select_candidate_modalities()
-        return self.filter_candidates(*candidates)
+        assert len(data) == size, Exception('Could not build a dataset of the specified size')
+
+        # Dump data
+        path = data_path('cache', '{}.json'.format(split))
+        evaluation_path = data_path('cache', 'evaluation.json')
+        with open(path, 'w+') as fp:
+            json.dump(data, fp)
+        if split == 'testing':
+            with open(evaluation_path, 'w+') as fp:
+                json.dump(question_answer_map, fp)
+
+        return data
 
     @staticmethod
-    def pad_sequences(candidates, axis, value, maxlen):
-        if not isinstance(candidates, (np.ndarray, np.generic)):
-            candidates = np.array(candidates)
-        padded = k_preproc.sequence.pad_sequences(candidates[:, axis], padding='post',
+    def pad_sequences(data, axis, value, maxlen):
+        if not isinstance(data, (np.ndarray, np.generic)):
+            data = np.array(data)
+        padded = k_preproc.sequence.pad_sequences(data[:, axis], padding='post',
                                                   value=value, maxlen=maxlen)
-        for sample, pad in zip(candidates, padded):
-            sample[axis] = pad
+        for sample, pad in zip(data, padded):
+            sample[axis] = pad.tolist()
 
-        return candidates
+        return data.tolist()
 
-    def create(self, location):
-        candidates = self.build()
-        set_tr, set_ts = self.process(*candidates)
-        if self.size_tr != -1:
-            self.save(set_tr, os.path.join(location, 'training.pk'))
-        if self.size_ts != -1:
-            self.save(set_ts, os.path.join(location, 'testing.pk'))
+    def create(self, split, size, destination, pre_processing_fn=None, elem_processing_fn=None,
+               post_processing_fn=None, process_mode='list'):
+        assert split in ['training', 'testing'], Exception('Undefined split in create args')
+        assert process_mode in ['list', 'dict'], Exception('Undefined elem_process_mode in create args')
+
+        cache, map_cache = self.__load_cached(split=split)
+        if cache is None or map_cache is None or len(cache) != size:
+            self.__build(split=split, size=size)
+            cache, map_cache = self.__load_cached(split=split)
+
+        if destination is None:
+            print('No destination was provided.')
+            return
+
+        data = cache if process_mode == 'list' else {}
+
+        # Initialize a dictionary that will later be used to dump the datasets using this split
+        if pre_processing_fn is not None:
+            print('Pre processing..')
+            data = pre_processing_fn(data, map_cache) \
+                if process_mode == 'list' \
+                else pre_processing_fn(cache, map_cache)
+
+        if elem_processing_fn is not None:
+            print('Element processing..')
+            if pre_processing_fn is None:
+                target = cache
+            else:
+                target = data
+            for idx, element in enumerate(tqdm(target)):
+                # Iterate over each element in the cache and call all the manipulators sequentially
+                question_id, question, image_path, answer = element
+                answers = map_cache[str(question_id)]
+                if process_mode == 'list':
+                    data[idx] = elem_processing_fn(question_id, question, image_path, answer, answers)
+                else:
+                    key, value = elem_processing_fn(question_id, question, image_path, answer, answers)
+                    data[key] = value
+
+        if post_processing_fn is not None:
+            print('Post processing..')
+            data = post_processing_fn(data, map_cache)
+
+        with open(os.path.join('{}.json'.format(destination)), 'w+') as fp:
+            json.dump(data, fp)
+
+    def create_together(self, tr_size, ts_size, tr_destination, ts_destination, pre_processing_fn=None,
+                        elem_processing_fn=None,
+                        post_processing_fn=None):
+
+        tr_cache = self.__load_cached(split='training')
+        ts_cache = self.__load_cached(split='testing')
+
+        if tr_cache is None or len(tr_cache) != tr_size:
+            self.__build(split='training', size=tr_size)
+            tr_cache = self.__load_cached(split='training')
+
+        if ts_cache is None or len(ts_cache) != ts_size:
+            self.__build(split='testing', size=ts_size)
+            ts_cache = self.__load_cached(split='testing')
+
+        if tr_destination is None:
+            print('No training destination was provided.')
+            return
+
+        if ts_destination is None:
+            print('No testing destination was provided.')
+            return
+
+        tr_data = tr_cache
+        ts_data = ts_cache
+
+        # Initialize a dictionary that will later be used to dump the datasets using this split
+        if pre_processing_fn is not None:
+            print('Pre processing..')
+            tr_data, ts_data = pre_processing_fn(tr_data, ts_data)
+
+        if elem_processing_fn is not None:
+            print('Element processing..')
+            for data, split in [[tr_data, 'training'], [ts_data, 'testing']]:
+                for idx, element in enumerate(tqdm(data)):
+                    # Iterate over each element in the cache and call all the manipulators sequentially
+                    question_id, question, image_path, answer = element
+                    data[idx] = elem_processing_fn(question_id, question, image_path, answer, split)
+
+        if post_processing_fn is not None:
+            print('Post processing..')
+            tr_data, ts_data = post_processing_fn(tr_data, ts_data)
+
+        with open(os.path.join('{}.json'.format(tr_destination)), 'w+') as fp:
+            json.dump(tr_data, fp)
+        with open(os.path.join('{}.json'.format(ts_destination)), 'w+') as fp:
+            json.dump(ts_data, fp)
 
 
-class VADatasetCreator(TrainingDatasetCreator):
-    def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
-        super().__init__(tr_size, ts_size, generation_seed, visual=True, question=False)
-        self.img_idx = 1
-        self.tkn_a_idx = 2
-        self.tkn_a_len_idx = 3
+class MultiPurposeDataset(Dataset):
+    def __init__(self, location, split='training', maxlen=None, evaluating=False):
+        assert split in ['training', 'testing']
+        try:
+            with open(os.path.join(location, '{}.json'.format(split)), 'r') as fd:
+                self.data = json.load(fd)
+
+            self.maxlen = maxlen if maxlen is not None else len(self.data)
+            self.split = split
+            self.evaluating = evaluating
+
+            if evaluating:
+                evaluation_data_file = resources_path(data_path('cache'), 'evaluation.json')
+                with open(evaluation_data_file, 'r') as j:
+                    self.evaluation_data = json.load(j)
+
+            print('Data loaded successfully.')
+
+        except (OSError, IOError) as e:
+            print('Unable to load data. Did you build it first?', str(e))
+
+    def __len__(self):
+        return self.maxlen
+
+    @staticmethod
+    def collate_fn(batch):
+        beam_inputs = [item[0] for item in batch]
+        ground_truths = [item[1] for item in batch]
+        return beam_inputs, ground_truths
 
 
-class QADatasetCreator(TrainingDatasetCreator):
-    def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
-        super().__init__(tr_size, ts_size, generation_seed, visual=False, question=True)
-        self.tkn_q_idx = 1
-        self.tkn_q_len_idx = 2
-        self.tkn_a_idx = 3
-        self.tkn_a_len_idx = 4
-
-
-class VQADatasetCreator(TrainingDatasetCreator):
-    def __init__(self, tr_size=None, ts_size=None, generation_seed=None):
-        super().__init__(tr_size, ts_size, generation_seed, visual=True, question=True)
-        self.tkn_q_idx = 1
-        self.tkn_q_len_idx = 2
-        self.img_idx = 3
-        self.tkn_a_idx = 4
-        self.tkn_a_len_idx = 5
+if __name__ == '__main__':
+    # Build only the cache
+    DatasetCreator().create(split='training', size=1000000, destination=None)
+    DatasetCreator().create(split='testing', size=200000, destination=None)
