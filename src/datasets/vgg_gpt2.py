@@ -90,7 +90,5 @@ class VGGPT2Dataset(MultiPurposeDataset):
 
 if __name__ == '__main__':
     path = resources_path('models', 'vgg_gpt2', 'data')
-    # create_datasets(path)
-    data = VGGPT2Dataset(location=path, split='testing', evaluating=True)
-    s = data[0]
-    print(s)
+    create_datasets(path)
+
