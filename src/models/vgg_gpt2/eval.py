@@ -135,7 +135,7 @@ def init_model_data():
 
     # Init models and load checkpoint. Disable training mode & move to device
     model = VGGPT2()
-    model.load_state_dict(torch.load(os.path.join(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_7.pth')))
+    model.load_state_dict(torch.load(os.path.join(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_10.pth')))
     model.set_train_on(False)
     model.to(device)
 
