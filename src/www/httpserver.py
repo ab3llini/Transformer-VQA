@@ -55,7 +55,11 @@ def index_with_sample(sample_id):
 def execute():
     question = request.args.get('question')
     sample_id = int(request.args.get('sample_id'))
-    image, fig, words, alphas, sequence = eval.interactive_evaluation(question, model, device, ts_dataset, sample_id)
+    beam_size = int(request.args.get('beam_size'))
+    maxlen = int(request.args.get('maxlen'))
+
+    image, fig, words, alphas, sequence = eval.interactive_evaluation(question, model, device, ts_dataset, sample_id,
+                                                                      beam_size, maxlen)
     if cache['softmaps'] is not None:
         os.remove('static/{}'.format(cache['softmaps']))
     cache['softmaps'] = randomString(11) + '.png'
@@ -64,6 +68,8 @@ def execute():
                            sample_id=sample_id,
                            image_href=url_for('static', filename=cache['image']),
                            output_href=url_for('static', filename=cache['softmaps']),
+                           beam_size=beam_size,
+                           maxlen=maxlen,
                            output=str(sequence)
                            )
 

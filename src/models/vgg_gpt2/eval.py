@@ -21,9 +21,9 @@ import nltk
 import torch
 
 
-def do_beam_search(model, question, image, beam_search_input, device):
-    cs, rs, cs_out, rs_out = beam_search_with_softmaps(model, beam_search_input, len(gpt2_tokenizer), 1,
-                                                       gpt2_tokenizer.eos_token_id, 20, device=device)
+def do_beam_search(model, question, image, beam_search_input, device, beam_size=1, maxlen=20):
+    cs, rs, cs_out, rs_out = beam_search_with_softmaps(model, beam_search_input, len(gpt2_tokenizer), beam_size,
+                                                       gpt2_tokenizer.eos_token_id, maxlen, device=device)
 
     if cs is not None:
         print('Best completed sequence:')
@@ -58,7 +58,7 @@ def get_sample_image(dataset, index):
     return image
 
 
-def interactive_evaluation(question, model, device, dataset, index):
+def interactive_evaluation(question, model, device, dataset, index, beam_size=1, maxlen=20):
     set_seed(0)
     question = [gpt2_tokenizer.bos_token_id] + gpt2_tokenizer.encode(question) + [gpt2_tokenizer.sep_token_id]
 
@@ -74,7 +74,7 @@ def interactive_evaluation(question, model, device, dataset, index):
     plt.imshow(image)
     plt.show()
 
-    return do_beam_search(model, question, image, beam_search_input, device)
+    return do_beam_search(model, question, image, beam_search_input, device, beam_size)
 
 
 def set_seed(seed):

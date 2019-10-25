@@ -110,9 +110,9 @@ class CaptionDataset(MultiPurposeDataset):
         else:
             start = torch.tensor([self.word_map['<start>']]).long()
             image = image
-            length = torch.tensor(length).long()
+            length = torch.tensor(2).long()
 
-            beam_input = CaptioningBeamSearchInput(1, 1, start, image, length)
+            beam_input = CaptioningBeamSearchInput(0, 1, start, image, length)
             ground_truths = self.evaluation_data[str(__id)]
             return beam_input, ground_truths
 
