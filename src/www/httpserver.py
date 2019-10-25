@@ -48,7 +48,10 @@ def index_without_sample():
 
 @app.route('/<sample_id>')
 def index_with_sample(sample_id):
-    return index(sample_id=int(sample_id))
+    try:
+        return index(sample_id=int(sample_id))
+    except Exception as e:
+        print('Invalid sample id', sample_id)
 
 
 @app.route('/execute')
