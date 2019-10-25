@@ -128,7 +128,7 @@ def evaluate_bleu_score():
 
 def init_model_data():
     # Set the current device
-    device = 'cuda'
+    device = 'cpu'
 
     # Which is the model basepath?
     model_basepath = resources_path('models', 'vgg_gpt2')
