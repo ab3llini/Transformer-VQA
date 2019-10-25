@@ -14,9 +14,18 @@ from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import compute_corpus_bleu
 import seaborn as sns;
 import nltk
+
 sns.set()
 import matplotlib.pyplot as plt
 import pandas as pd
+
+
+def decode_fn(pred):
+    try:
+        return nltk.word_tokenize(gpt2.gpt2_tokenizer.decode(pred))
+    except Exception as e:
+        print('Exception while trying to decode {}.. Returning an empty string..'.format(pred))
+        return ''
 
 
 def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
@@ -74,8 +83,9 @@ def prepare_data(base_dir=paths.resources_path('models', 'baseline')):
         'gpt2': {
             'dataset': gpt2_dataset_ts,
             'vocab_size': len(gpt2.gpt2_tokenizer),
-            'decode_fn' : lambda pred: nltk.word_tokenize(gpt2.gpt2_tokenizer.decode(pred)),
-            'stop_word': gpt2.gpt2_tokenizer.eos_token_id,
+            'decode_fn': decode_fn,
+            'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
+                          gpt2.gpt2_tokenizer.sep_token_id],
             'model': gpt2_model
         },
         'bert': {
@@ -107,7 +117,7 @@ def evaluate(data):
     for model_name, parameters in data.items():
         print('Evaluating {}'.format(model_name))
 
-        for k in [1]:
+        for k in [2, 3]:
             bleu, _, _ = compute_corpus_bleu(
                 model=parameters['model'],
                 dataset=parameters['dataset'],
@@ -136,5 +146,5 @@ if __name__ == '__main__':
 
     # Save files
     SAVE_DIR = paths.resources_path('results', 'baseline')
-    plot.savefig(os.path.join(SAVE_DIR, 'bleu1.png'))
-    results.to_csv(os.path.join(SAVE_DIR, 'results_bleu1.csv'))
+    plot.savefig(os.path.join(SAVE_DIR, 'bleu1_beam2.png'))
+    results.to_csv(os.path.join(SAVE_DIR, 'results_bleu1_beam2.csv'))

@@ -44,7 +44,7 @@ if __name__ == '__main__':
     model = CaptioningModel(attention_dim, emb_dim, decoder_dim, word_map, dropout)
     model.load_state_dict(
         torch.load(
-            os.path.join(model_basepath, 'checkpoints', 'B_256_LR_0.0004_CHKP_EPOCH_2.pth')))
+            os.path.join(model_basepath, 'checkpoints', 'B_100_LR_0.0004_CHKP_EPOCH_2.pth')))
     model.eval()
 
     ts_dataset = CaptionDataset(location=os.path.join(model_basepath, 'data'), split='testing', evaluating=True,
