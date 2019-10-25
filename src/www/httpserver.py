@@ -14,7 +14,7 @@ import string
 import os
 
 app = Flask(__name__)
-model, device, ts_dataset = eval.init_model_data()
+model, device, ts_dataset = eval.init_model_data(epoch=10)
 
 cache = {'image': None, 'softmaps': None}
 
@@ -44,6 +44,18 @@ def index(sample_id):
 @app.route('/')
 def index_without_sample():
     return index(sample_id=None)
+
+
+@app.route('/switch/<epoch>')
+def switch_model(epoch):
+    global model
+    global device
+    global ts_dataset
+    try:
+        model, device, ts_dataset = eval.init_model_data(epoch=int(epoch))
+        return 'Switched model..'
+    except Exception as e:
+        return 'Invalid epoch number', epoch
 
 
 @app.route('/<sample_id>')

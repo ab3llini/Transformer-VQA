@@ -126,16 +126,16 @@ def evaluate_bleu_score():
     results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
 
 
-def init_model_data():
+def init_model_data(epoch):
     # Set the current device
-    device = 'cpu'
+    device = 'cuda'
 
     # Which is the model basepath?
     model_basepath = resources_path('models', 'vgg_gpt2')
 
     # Init models and load checkpoint. Disable training mode & move to device
     model = VGGPT2()
-    model.load_state_dict(torch.load(os.path.join(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_10.pth')))
+    model.load_state_dict(torch.load(os.path.join(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_{}.pth'.format(epoch))))
     model.set_train_on(False)
     model.to(device)
 
