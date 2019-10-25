@@ -13,7 +13,7 @@
                 <h4>VGGPT2 Web Demo</h4>
             </div>
         </div>
-        <div class="row">
+        <div class="row mt-2">
             <div class="col">
                 <h4><span class="badge badge-info">Sample <span id="sample_id">{{ sample_id }}</span></span></h4>
             </div>
@@ -25,27 +25,24 @@
         </div>
         <div class="row mt-4">
             <div class="col">
-                <div class="input-group">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text">Question</span>
-                    </div>
-                    <input class="form-control" type="text" id="question" placeholder="Enter your question here">
-                    <div class="input-group-append">
-                        <button class="btn btn-outline-primary" id="submit">Execute</button>
-                    </div>
-                </div>
+                <h4><span class="badge badge-info">Output sequence</span></h4>
+                <p>{{ output }}</p>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col">
+                <h4><span class="badge badge-info">Output maps</span></h4>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col">
+                <img class="w-100 rounded" src="{{ output_href }}">
             </div>
         </div>
     </div>
 </div>
 
-
 <script src="https://code.jquery.com/jquery-latest.min.js"></script>
-<script>
-    $('#submit').click(() => {
-        window.location = 'execute?question=' + $('#question').val() + '&sample_id=' + $('#sample_id').html()
-    })
-</script>
 <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
 </body>
 </html>

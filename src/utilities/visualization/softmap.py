@@ -22,6 +22,7 @@ def softmap_visualize(softmaps, sequence, image, show_plot=True):
     image = image.resize([7 * 32, 7 * 32], Image.LANCZOS)
     words_tokenized = sequence.tolist()
     words = [gpt2_tokenizer.convert_ids_to_tokens(w) for w in words_tokenized]
+    alphas = []
     softmaps = softmaps.view(softmaps.size(0), 7, 7)
     if '<pad>' in words:
         words = words[:words.index('<pad>')]
@@ -46,10 +47,13 @@ def softmap_visualize(softmaps, sequence, image, show_plot=True):
             else:
                 plt.imshow(alpha, alpha=0.7)
             # plt.set_cmap(cm.Greys_r)
+            alphas.append(alpha)
         plt.axis('off')
 
     fig = plt.gcf()
     if show_plot:
         plt.show()
 
-    return fig, words
+    # Generate alphas images
+
+    return image, fig, words, alphas, gpt2_tokenizer.decode(words_tokenized)

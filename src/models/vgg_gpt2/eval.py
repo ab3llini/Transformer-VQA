@@ -18,10 +18,27 @@ import pandas as pd
 from utilities.evaluation.evaluate_vqa import vqa_evaluation
 from models.baseline.baseline_evaluator import prepare_data
 import nltk
+import torch
 
 
-def eval_single_sample(index):
-    beam_search_input, ground_truths, image = ts_dataset[index]
+def do_beam_search(model, question, image, beam_search_input, device):
+    cs, rs, cs_out, rs_out = beam_search_with_softmaps(model, beam_search_input, len(gpt2_tokenizer), 1,
+                                                       gpt2_tokenizer.eos_token_id, 20, device=device)
+
+    if cs is not None:
+        print('Best completed sequence:')
+        print(gpt2_tokenizer.decode(cs))
+        seq = torch.cat([torch.tensor(question).to(device), torch.tensor(cs).to(device)])
+        return softmap_visualize(cs_out, seq, image, False)
+    elif rs is not None:
+        print('Best uncompleted sequence:')
+        print(gpt2_tokenizer.decode(rs))
+        seq = torch.cat([torch.tensor(question).to(device), torch.tensor(rs).to(device)])
+        return softmap_visualize(rs_out, seq, image, False)
+
+
+def eval_single_sample(model, device, dataset, index):
+    beam_search_input, ground_truths, image = dataset[index]
 
     question = beam_search_input.args[0].tolist()
     print("Question:", gpt2_tokenizer.decode(question))
@@ -32,19 +49,32 @@ def eval_single_sample(index):
     plt.imshow(image)
     plt.show()
 
-    cs, rs, cs_out, rs_out = beam_search_with_softmaps(model, beam_search_input, len(gpt2_tokenizer), 1,
-                                                       gpt2_tokenizer.eos_token_id, 20, device=device)
+    do_beam_search(model, question, image, beam_search_input, device)
 
-    if cs is not None:
-        print('Best completed sequence:')
-        print(gpt2_tokenizer.decode(cs))
-        seq = torch.cat([torch.tensor(question).to(device), torch.tensor(cs).to(device)])
-        softmap_visualize(cs_out, seq, image, True)
-    if rs is not None:
-        print('Best uncompleted sequence:')
-        print(gpt2_tokenizer.decode(rs))
-        seq = torch.cat([torch.tensor(question).to(device), torch.tensor(rs).to(device)])
-        softmap_visualize(rs_out, seq, image, True)
+
+def get_sample_image(dataset, index):
+    set_seed(0)
+    _, _, image = dataset[index]
+    return image
+
+
+def interactive_evaluation(question, model, device, dataset, index):
+    set_seed(0)
+    question = [gpt2_tokenizer.bos_token_id] + gpt2_tokenizer.encode(question) + [gpt2_tokenizer.sep_token_id]
+
+    beam_search_input, ground_truths, image = dataset[index]
+
+    beam_search_input.args[0] = torch.tensor(question).long()
+
+    print("Question:", gpt2_tokenizer.decode(question))
+    print('Ground truths')
+    for truth in ground_truths:
+        print("Ground truth:", " ".join(truth))
+    plt.axis('off')
+    plt.imshow(image)
+    plt.show()
+
+    return do_beam_search(model, question, image, beam_search_input, device)
 
 
 def set_seed(seed):
@@ -52,12 +82,14 @@ def set_seed(seed):
     random.seed(seed)
     torch.manual_seed(seed)
 
+
 def decode_fn(pred):
     try:
         return nltk.word_tokenize(gpt2_tokenizer.decode(pred))
     except Exception as e:
         print('Exception while trying to decode {}.. Returning an empty string..'.format(pred))
         return ''
+
 
 def evaluate_bleu_score():
     results = {
@@ -70,7 +102,7 @@ def evaluate_bleu_score():
     for k in [1]:
         bleu, _, _ = compute_corpus_bleu(
             model=model,
-            dataset=ts_dataset,
+            dataset=dataset,
             decode_fn=decode_fn,
             vocab_size=len(gpt2_tokenizer),
             beam_size=k,
@@ -94,10 +126,7 @@ def evaluate_bleu_score():
     results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
 
 
-if __name__ == '__main__':
-    # Set random seed to replicate results
-    set_seed(0)
-
+def init_model_data():
     # Set the current device
     device = 'cuda'
 
@@ -122,10 +151,21 @@ if __name__ == '__main__':
     # it = iter(loader)
     # sample = next(it)
 
-    eval_single_sample(542)
-
     # To evaluate bleu score uncomment the following line
-    evaluate_bleu_score()
+    # evaluate_bleu_score()
 
     # To evaluate using the VQA eval tool uncomment this line
     # evaluate_vqa()
+
+    return model, device, ts_dataset
+
+
+if __name__ == '__main__':
+    set_seed(0)
+    model, device, dataset = init_model_data()
+    set_seed(0)
+    eval_single_sample(model, device, dataset, 542)
+    set_seed(0)
+    image, fig, words, alphas = interactive_evaluation('What is it?', model, device, dataset, 542)
+    plt.imshow(alphas[0], alpha=1)
+    plt.show()
