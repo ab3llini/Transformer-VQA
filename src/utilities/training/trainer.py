@@ -18,7 +18,7 @@ class Trainer:
                  epochs=10,
                  device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
                  num_workers=4,
-                 shuffle=False,
+                 shuffle=True,
                  tensorboard=None,
                  checkpoint_path=None,
                  callback_fn=None,
@@ -88,7 +88,7 @@ class Trainer:
                 if self.batch_extractor is not None:
                     extracted_batch = self.batch_extractor(batch)
                 else:
-                    extracted_batch = extracted_batch
+                    extracted_batch = batch
 
                 # Move tensors to device
                 for idx, o in enumerate(extracted_batch):

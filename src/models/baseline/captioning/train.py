@@ -70,11 +70,8 @@ def train():
 
     model = CaptioningModel(attention_dim, emb_dim, decoder_dim, word_map, dropout)
 
-    tr_dataset = CaptionDataset(directory=resources_path(model_basepath, 'data'),
-                                name='training.pk')
-
-    ts_dataset = CaptionDataset(directory=resources_path(model_basepath, 'data'), name='testing.pk',
-                                split='test')
+    tr_dataset = CaptionDataset(location=os.path.join(model_basepath, 'data'), split='training')
+    ts_dataset = CaptionDataset(location=os.path.join(model_basepath, 'data'), split='testing', maxlen=20000)
 
     for name, param in model.named_parameters():
         if param.requires_grad:
@@ -93,13 +90,9 @@ def train():
         lr=decoder_lr,
         batch_size=batch_size,
         device='cuda',
-        batch_extractor=lambda batch: batch[1:],  # Get rid of the id
         epochs=3,
-        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs')),
-        checkpoint_path=resources_path(model_basepath, 'checkpoints'),
-        logging_fp=None,
-        logging_fn=None,
-        logging_interval=0
+        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'latest')),
+        checkpoint_path=resources_path(model_basepath, 'checkpoints')
     )
 
     caption_trainer.train()
