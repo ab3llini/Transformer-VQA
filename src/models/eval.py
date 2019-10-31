@@ -216,5 +216,5 @@ def gen_plot(results):
 
 
 if __name__ == '__main__':
-    data = prepare_data(maxlen=56)
+    data = prepare_data(maxlen=50000)
     gen_predictions(data, beam_size=1, limit=20)
