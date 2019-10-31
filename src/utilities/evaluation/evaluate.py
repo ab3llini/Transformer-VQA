@@ -1,13 +1,25 @@
+import sys
+import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
+sys.path.append(root_path)
+
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction, sentence_bleu
 from torch.utils.data import DataLoader
 from utilities.evaluation.beam_search import beam_search
 from datasets.creator import MultiPurposeDataset
 from tqdm import tqdm
 import random
+from nltk.corpus import wordnet
+import nltk
+from utilities.evaluation.wordnet_similarity import sentence_similarity
+import gensim.downloader as api
+
+glove_embeddings = None
 
 def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_size, beam_size, stop_word, max_len,
                         device='cuda'):
-
     # Set the model in evaluation mode
     model.eval()
     model.to(device)
@@ -22,14 +34,12 @@ def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_si
 
     print('Beam searching with size = {}'.format(beam_size))
     for batch in tqdm(loader):
-
         # Make beam search
-        bc, br = beam_search(model, batch[0][0], vocab_size, beam_size, stop_word, max_len, device)
+        bc, br = beam_search(model, batch[1][0], vocab_size, beam_size, stop_word, max_len, device)
         # Append references
-        references.append(batch[1][0])
+        references.append(batch[2][0])
         # Append best completed or best running
         predictions.append(bc) if bc is not None else predictions.append(br)
-
 
     print('Decoding & NLTK encoding predictions with the provided tokenizer..')
     predictions = list(map(decode_fn, predictions))
@@ -50,6 +60,33 @@ def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_si
         print('Reference', t)
 
     return score, predictions, references
+
+
+def generate_predictions(model, dataset: MultiPurposeDataset, decode_fn, vocab_size, beam_size, stop_word, max_len,
+                         device='cuda'):
+    # Set the model in evaluation mode
+    model.eval()
+    model.to(device)
+
+    # Prepare references and predictions
+    predictions = {}
+
+    # Prepare sequential batch loader
+    loader = DataLoader(dataset=dataset, collate_fn=dataset.collate_fn, num_workers=4,
+                        shuffle=False, pin_memory=True)
+
+    print('Beam searching with size = {}'.format(beam_size))
+    for batch in tqdm(loader):
+        # Make beam search
+        bc, br = beam_search(model, batch[1][0], vocab_size, beam_size, stop_word, max_len, device)
+
+        # Append best completed or best running
+        predictions[batch[0][0]] = bc if bc is not None else br
+
+    print('Decoding & NLTK encoding predictions with the provided tokenizer..')
+    predictions = dict(map(lambda item: (item[0], decode_fn(item[1])), predictions.items()))
+
+    return predictions
 
 
 def compute_sentences_bleu(model, dataset: MultiPurposeDataset, vocab_size, beam_size, stop_word, max_len,
@@ -87,3 +124,28 @@ def compute_sentences_bleu(model, dataset: MultiPurposeDataset, vocab_size, beam
         bleu.append(score)
 
     return bleu, predictions, references
+
+
+def word_mover_distance(prediction, ground_truths):
+
+    global glove_embeddings
+    if glove_embeddings is None:
+        glove_embeddings = api.load("glove-wiki-gigaword-100")
+
+    similarity = 0
+    for truth in ground_truths:
+        similarity += glove_embeddings.wmdistance(prediction, truth)
+
+    # Average similarity
+    similarity /= 10
+
+    return similarity
+
+
+if __name__ == '__main__':
+    word_vectors = api.load("glove-wiki-gigaword-100")
+    s1 = 'yes'.lower().split()
+    s2 = 'yes'.lower().split()
+    s3 = 'saviyfgijuahysdghfiuyasdhgfiuyasdhifuashiufhasiufhasdiufhasdiuhfasduihfuaiowd'
+    print(word_vectors.wmdistance(s1, s2))
+    print(word_vectors.wmdistance(s1, s3))

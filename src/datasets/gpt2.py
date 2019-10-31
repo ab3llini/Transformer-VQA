@@ -80,7 +80,7 @@ class GPT2Dataset(MultiPurposeDataset):
             question = torch.tensor(sequence[:ql]).long()
             beam_input = BeamSearchInput(0, 0, question)
             ground_truths = self.evaluation_data[str(__id)]
-            return beam_input, ground_truths
+            return __id, beam_input, ground_truths
 
 
 if __name__ == '__main__':

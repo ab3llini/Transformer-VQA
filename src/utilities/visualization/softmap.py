@@ -4,7 +4,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import skimage.transform
-from models.vgg_gpt2.model import gpt2_tokenizer
+from models.vggpt2.model import gpt2_tokenizer
 from utilities.vqa.dataset import *
 
 

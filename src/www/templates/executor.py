@@ -5,7 +5,7 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from datasets import captioning, gpt2, bert, vgg_gpt2
+from datasets import captioning, gpt2, bert, vggpt2
 from utilities.evaluation import sanity
 from utilities import paths
 import torch
@@ -13,7 +13,7 @@ import models.baseline.captioning.train as modelling_caption
 from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import compute_corpus_bleu
 import seaborn as sns;
-from models.vgg_gpt2.model import VGGPT2, gpt2_tokenizer
+from models.vggpt2.model import VGGPT2, gpt2_tokenizer
 
 sns.set()
 import matplotlib.pyplot as plt
@@ -22,7 +22,7 @@ import pandas as pd
 
 def get_model_map():
     baseline_dir = paths.resources_path('models', 'baseline')
-    vggpt2_dir = paths.resources_path('models', 'vgg_gpt2')
+    vggpt2_dir = paths.resources_path('models', 'vggpt2')
 
     captioning_dataset_ts = captioning.CaptionDataset(
         directory=os.path.join(baseline_dir, 'captioning', 'data'),
@@ -47,7 +47,7 @@ def get_model_map():
 
     )
 
-    vggpt2_dataset_ts = vgg_gpt2.VGGPT2Dataset(
+    vggpt2_dataset_ts = vggpt2.VGGPT2Dataset(
         directory=os.path.join(vggpt2_dir, 'data'),
         name='testing.pk',
         split='test',

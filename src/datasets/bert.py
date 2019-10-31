@@ -114,7 +114,7 @@ class BertDataset(MultiPurposeDataset):
             token_types = torch.tensor(token_types[:ql]).long()
             beam_input = BertBeamSearchInput(0, 1, 0, question, token_types)
             ground_truths = self.evaluation_data[str(__id)]
-            return beam_input, ground_truths
+            return __id, beam_input, ground_truths
 
 
 if __name__ == '__main__':

@@ -5,18 +5,15 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from models.vgg_gpt2.model import VGGPT2
+from models.vggpt2.model import VGGPT2
 from utilities import paths
-import random
 from utilities.visualization.softmap import *
 from utilities.evaluation.evaluate import *
 from utilities.evaluation.beam_search import *
-from datasets.vgg_gpt2 import VGGPT2Dataset
+from datasets.vggpt2 import VGGPT2Dataset
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-from utilities.evaluation.evaluate_vqa import vqa_evaluation
-from models.baseline.baseline_evaluator import prepare_data
 import nltk
 import torch
 
@@ -121,7 +118,7 @@ def evaluate_bleu_score():
     plt.show()
 
     # Save files
-    SAVE_DIR = paths.resources_path('results', 'vgg_gpt2')
+    SAVE_DIR = paths.resources_path('results', 'vggpt2')
     plot.figure.savefig(os.path.join(SAVE_DIR, 'bleu1.png'))
     results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
 
@@ -131,7 +128,7 @@ def init_model_data(epoch):
     device = 'cuda'
 
     # Which is the model basepath?
-    model_basepath = resources_path('models', 'vgg_gpt2')
+    model_basepath = resources_path('models', 'vggpt2')
 
     # Init models and load checkpoint. Disable training mode & move to device
     model = VGGPT2()

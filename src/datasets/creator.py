@@ -278,9 +278,10 @@ class MultiPurposeDataset(Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        beam_inputs = [item[0] for item in batch]
-        ground_truths = [item[1] for item in batch]
-        return beam_inputs, ground_truths
+        ids = [item[0] for item in batch]
+        beam_inputs = [item[1] for item in batch]
+        ground_truths = [item[2] for item in batch]
+        return ids, beam_inputs, ground_truths
 
 
 if __name__ == '__main__':

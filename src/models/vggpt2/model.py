@@ -64,7 +64,7 @@ class VGGPT2(nn.Module):
         for param in self.vgg11.parameters():
             param.requires_grad = False
 
-        self.show_params()
+        # self.show_params()
 
 
     def show_params(self):

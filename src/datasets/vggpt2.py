@@ -85,10 +85,10 @@ class VGGPT2Dataset(MultiPurposeDataset):
             question = torch.tensor(sequence[:ql]).long()
             beam_input = BeamSearchInput(0, 0, question, image)
             ground_truths = self.evaluation_data[str(__id)]
-            return beam_input, ground_truths, resized_image
+            return __id, beam_input, ground_truths, resized_image
 
 
 if __name__ == '__main__':
-    path = resources_path('models', 'vgg_gpt2', 'data')
+    path = resources_path('models', 'vggpt2', 'data')
     create_datasets(path)
 

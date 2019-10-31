@@ -9,9 +9,9 @@ from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 from utilities.training.trainer import Trainer
 from utilities.paths import resources_path
-from datasets.vgg_gpt2 import VGGPT2Dataset
+from datasets.vggpt2 import VGGPT2Dataset
 from modules.loss import GPT2Loss
-from models.vgg_gpt2.model import VGGPT2, gpt2_tokenizer
+from models.vggpt2.model import VGGPT2, gpt2_tokenizer
 from utilities.vqa.dataset import *
 from utilities.visualization.softmap import *
 
@@ -39,7 +39,7 @@ def train():
     loss = GPT2Loss(pad_token_id=gpt2_tokenizer.pad_token_id)
     model = VGGPT2(tokenizer=gpt2_tokenizer)
 
-    model_basepath = os.path.join('models', 'vgg_gpt2')
+    model_basepath = os.path.join('models', 'vggpt2')
 
     tr_dataset = VGGPT2Dataset(directory=resources_path(model_basepath, 'data'),
                                name='training.pk')

@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 from flask import Flask, render_template, request, url_for
 import shutil
-from models.vgg_gpt2 import eval
+from models.vggpt2 import eval
 import random
 import matplotlib.pyplot as plt
 import string

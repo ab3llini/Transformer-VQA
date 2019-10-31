@@ -114,7 +114,7 @@ class CaptionDataset(MultiPurposeDataset):
 
             beam_input = CaptioningBeamSearchInput(0, 1, start, image, length)
             ground_truths = self.evaluation_data[str(__id)]
-            return beam_input, ground_truths
+            return __id, beam_input, ground_truths
 
 
 if __name__ == '__main__':
