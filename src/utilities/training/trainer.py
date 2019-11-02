@@ -162,7 +162,7 @@ class Trainer:
             torch.save(self.model.state_dict(),
                        os.path.join(self.checkpoint_path, 'B_{}_LR_{}_CHKP_EPOCH_{}.pth'.format(self.batch_size,
                                                                                                 self.lr,
-                                                                                                epoch)))
+                                                                                                epoch + 8)))
 
             # Evaluate test loss every epoch
             if self.ts_dataset is not None:

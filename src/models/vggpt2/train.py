@@ -14,6 +14,7 @@ from modules.loss import GPT2Loss
 from models.vggpt2.model import VGGPT2, gpt2_tokenizer
 from utilities.vqa.dataset import *
 from utilities.visualization.softmap import *
+import torch
 
 q_path_tr, a_path_tr, i_path_tr = get_data_paths(data_type='train')
 vqa_helper_tr = VQA(a_path_tr, q_path_tr)
@@ -23,9 +24,8 @@ def gpt2_callback_fn(output, batch, iteration, epoch, task, tb):
     softmap_fig, words = softmap_visualize(
         softmaps=output[1][0],
         sequence=batch[1][0],
-        image_id=vqa_helper_tr.getImgIds(quesIds=[batch[0][0].item()])[0],
-        i_path=i_path_tr,
-        show_plot=False
+        image=batch[2][0],
+        show_plot=True
     )
 
     tb.add_figure(
@@ -37,17 +37,21 @@ def gpt2_callback_fn(output, batch, iteration, epoch, task, tb):
 
 def train():
     loss = GPT2Loss(pad_token_id=gpt2_tokenizer.pad_token_id)
-    model = VGGPT2(tokenizer=gpt2_tokenizer)
+    model = VGGPT2()
 
     model_basepath = os.path.join('models', 'vggpt2')
 
-    tr_dataset = VGGPT2Dataset(directory=resources_path(model_basepath, 'data'),
-                               name='training.pk')
+    model.load_state_dict(
+        torch.load(resources_path(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_{}.pth'.format(7))))
+    model.set_train_on(True)
+
+    tr_dataset = VGGPT2Dataset(location=resources_path(model_basepath, 'data'),
+                               split='training')
 
     learning_rate = 5e-5
-    epochs = 20
+    epochs = 10
 
-    tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'exp2'))
+    tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'exp2_from7'))
 
     gpt2_trainer = Trainer(
         model=model,
@@ -56,13 +60,13 @@ def train():
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=lambda out, batch: loss(out[0], batch[0]),
         lr=learning_rate,
-        batch_size=40,
-        batch_extractor=lambda batch: batch[1:],  # Get rid id & original image
+        batch_size=20,
         epochs=epochs,
         tensorboard=tb,
+        num_workers=1,
         checkpoint_path=resources_path(model_basepath, 'checkpoints'),
-        callback_fn=lambda *args: gpt2_callback_fn(*(list(args) + [tb])),
-        callback_interval=50,
+        # callback_fn=lambda *args: gpt2_callback_fn(*(list(args) + [tb])),
+        # callback_interval=40,
         device='cuda'
     )
 

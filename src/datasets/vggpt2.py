@@ -69,16 +69,13 @@ class VGGPT2Dataset(MultiPurposeDataset):
     def __getitem__(self, item):
 
         sample = self.data[item]
-        if not self.evaluating:
-            _, sequence, image_path, _ = sample
-        else:
-            __id, sequence, image_path, ql = sample
+
+        __id, sequence, image_path, ql = sample
         image = load_image(image_rel_path=image_path)
         resized_image = resize_image(image)
         image = normalized_tensor_image(resized_image)
 
         if not self.evaluating:
-            # Return answer + image + length
             return torch.tensor(sequence).long(), \
                    image
         else:
@@ -91,4 +88,3 @@ class VGGPT2Dataset(MultiPurposeDataset):
 if __name__ == '__main__':
     path = resources_path('models', 'vggpt2', 'data')
     create_datasets(path)
-
