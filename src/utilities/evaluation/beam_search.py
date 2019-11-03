@@ -338,8 +338,8 @@ if __name__ == '__main__':
     tokens_tensor = tokens_tensor.to('cuda')
     model.to('cuda')
 
-    bc, br = beam_search(BeamSearchInput(model, 0, 0, tokens_tensor), vocab_size=len(tokenizer),
-                         beam_size=25, stop_word=tokenizer.sep_token_id, max_len=50)
+    bc, br = beam_search(model=model, beam_search_input=BeamSearchInput(0, 0, tokens_tensor), vocab_size=len(tokenizer),
+                         beam_size=1, stop_word=tokenizer.sep_token_id, max_len=50)
 
     print('Best completed:', tokenizer.decode(bc) if bc is not None else 'None')
     print('Best running:', tokenizer.decode(br) if br is not None else 'None')

@@ -129,7 +129,7 @@ class DatasetCreator:
                         if elem[0] in question_answer_map:
                             del question_answer_map[elem[0]]
             else:
-                if question_counter[elem[0]] < self.max_answers_per_question:
+                if question_counter[elem[0]] < (self.max_answers_per_question if split == 'training' else 1):
                     data.append(elem[:-2].tolist())  # Remove lengths
                     question_counter.update([elem[0]])
 
@@ -162,10 +162,10 @@ class DatasetCreator:
         assert split in ['training', 'testing'], Exception('Undefined split in create args')
         assert process_mode in ['list', 'dict'], Exception('Undefined elem_process_mode in create args')
 
-        cache, map_cache = self.__load_cached(split=split)
-        if cache is None or map_cache is None or len(cache) != size:
+        cache = self.__load_cached(split=split)
+        if cache is None or len(cache) != size:
             self.__build(split=split, size=size)
-            cache, map_cache = self.__load_cached(split=split)
+            cache = self.__load_cached(split=split)
 
         if destination is None:
             print('No destination was provided.')
@@ -176,9 +176,9 @@ class DatasetCreator:
         # Initialize a dictionary that will later be used to dump the datasets using this split
         if pre_processing_fn is not None:
             print('Pre processing..')
-            data = pre_processing_fn(data, map_cache) \
+            data = pre_processing_fn(data) \
                 if process_mode == 'list' \
-                else pre_processing_fn(cache, map_cache)
+                else pre_processing_fn(cache)
 
         if elem_processing_fn is not None:
             print('Element processing..')
@@ -189,16 +189,15 @@ class DatasetCreator:
             for idx, element in enumerate(tqdm(target)):
                 # Iterate over each element in the cache and call all the manipulators sequentially
                 question_id, question, image_path, answer = element
-                answers = map_cache[str(question_id)]
                 if process_mode == 'list':
-                    data[idx] = elem_processing_fn(question_id, question, image_path, answer, answers)
+                    data[idx] = elem_processing_fn(question_id, question, image_path, answer, split)
                 else:
-                    key, value = elem_processing_fn(question_id, question, image_path, answer, answers)
+                    key, value = elem_processing_fn(question_id, question, image_path, answer, split)
                     data[key] = value
 
         if post_processing_fn is not None:
             print('Post processing..')
-            data = post_processing_fn(data, map_cache)
+            data = post_processing_fn(data)
 
         with open(os.path.join('{}.json'.format(destination)), 'w+') as fp:
             json.dump(data, fp)
@@ -283,8 +282,3 @@ class MultiPurposeDataset(Dataset):
         ground_truths = [item[2] for item in batch]
         return ids, beam_inputs, ground_truths
 
-
-if __name__ == '__main__':
-    # Build only the cache
-    DatasetCreator().create(split='training', size=1000000, destination=None)
-    DatasetCreator().create(split='testing', size=200000, destination=None)

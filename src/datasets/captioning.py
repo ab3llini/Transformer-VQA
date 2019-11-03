@@ -61,7 +61,7 @@ def create_datasets(base_path, min_word_freq=50):
                                                maxlen=longest_answer['testing'] + 2)
 
         print('Dumping word map..')
-        with open(os.path.join(base_path, 'wordmap.json'), 'w') as j:
+        with open(os.path.join(base_path, 'wordmap.2.json'), 'w') as j:
             json.dump(word_map, j)
 
         return tr_data, ts_data

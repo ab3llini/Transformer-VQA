@@ -5,6 +5,7 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
+from utilities.paths import *
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction, sentence_bleu
 from torch.utils.data import DataLoader
 from utilities.evaluation.beam_search import beam_search
@@ -15,8 +16,10 @@ from nltk.corpus import wordnet
 import nltk
 from utilities.evaluation.wordnet_similarity import sentence_similarity
 import gensim.downloader as api
+import json
 
 glove_embeddings = None
+
 
 def compute_corpus_bleu(model, dataset: MultiPurposeDataset, decode_fn, vocab_size, beam_size, stop_word, max_len,
                         device='cuda'):
@@ -126,26 +129,35 @@ def compute_sentences_bleu(model, dataset: MultiPurposeDataset, vocab_size, beam
     return bleu, predictions, references
 
 
-def word_mover_distance(prediction, ground_truths):
-
+def compute_wm_distance(prediction, ground_truths):
     global glove_embeddings
     if glove_embeddings is None:
         glove_embeddings = api.load("glove-wiki-gigaword-100")
 
-    similarity = 0
+    distance = None
     for truth in ground_truths:
-        similarity += glove_embeddings.wmdistance(prediction, truth)
+        d = glove_embeddings.wmdistance(prediction, truth)
+        if distance is None:
+            distance = d
+        else:
+            distance = d if d < distance else distance
 
-    # Average similarity
-    similarity /= 10
-
-    return similarity
+    return distance
 
 
-if __name__ == '__main__':
-    word_vectors = api.load("glove-wiki-gigaword-100")
-    s1 = 'yes'.lower().split()
-    s2 = 'yes'.lower().split()
-    s3 = 'saviyfgijuahysdghfiuyasdhgfiuyasdhifuashiufhasiufhasdiufhasdiuhfasduihfuaiowd'
-    print(word_vectors.wmdistance(s1, s2))
-    print(word_vectors.wmdistance(s1, s3))
+def compute_corpus_pred_len(predictions):
+    lengths = {}
+    for q_id, p in tqdm(predictions.items()):
+        lengths[str(q_id)] = len(p)
+    return lengths
+
+
+def compute_corpus_wm_distance(predictions, answers_map):
+    distances = {}
+    for q_id, p in tqdm(predictions.items()):
+        d = compute_wm_distance(p, answers_map[str(q_id)])
+        if str(q_id) in distances and d < distances[str(q_id)]:
+            raise Exception('Duplicate key')
+        else:
+            distances[str(q_id)] = d
+    return distances

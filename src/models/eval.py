@@ -14,7 +14,7 @@ import models.baseline.captioning.train as modelling_caption
 import models.vggpt2.model as modelling_vggpt2
 
 from transformers import GPT2LMHeadModel, BertForMaskedLM
-from utilities.evaluation.evaluate import compute_corpus_bleu, generate_predictions, word_mover_distance
+from utilities.evaluation.evaluate import *
 import seaborn as sns;
 import nltk
 
@@ -22,6 +22,7 @@ sns.set()
 import matplotlib.pyplot as plt
 import pandas as pd
 import json
+import math
 
 evaluation_cache = json.load(open(paths.data_path('cache', 'evaluation.json'), 'r'))
 
@@ -42,7 +43,7 @@ def nltk_decode_bert_fn(pred):
         return ''
 
 
-def prepare_data(maxlen=20000, split='testing'):
+def prepare_data(maxlen=50000, split='testing'):
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
 
@@ -106,13 +107,6 @@ def prepare_data(maxlen=20000, split='testing'):
     print('Checkpoints loaded in RAM')
 
     data = {
-        'captioning': {
-            'dataset': captioning_dataset_ts,
-            'vocab_size': len(captioning_dataset_ts.word_map),
-            'decode_fn': lambda pred: [rev_word_map[w] for w in pred],
-            'stop_word': captioning_dataset_ts.word_map['<end>'],
-            'model': captioning_model
-        },
         'gpt2': {
             'dataset': gpt2_dataset_ts,
             'vocab_size': len(gpt2.gpt2_tokenizer),
@@ -120,14 +114,6 @@ def prepare_data(maxlen=20000, split='testing'):
             'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
                           gpt2.gpt2_tokenizer.sep_token_id],
             'model': gpt2_model
-        },
-        'bert': {
-            'dataset': bert_dataset_ts,
-            'vocab_size': len(bert.bert_tokenizer),
-            'decode_fn': nltk_decode_bert_fn,
-            'stop_word': [bert.bert_tokenizer.cls_token_id,
-                          bert.bert_tokenizer.sep_token_id],
-            'model': bert_model
         },
         'vggpt2': {
             'dataset': vggpt2_dataset_ts,
@@ -137,9 +123,25 @@ def prepare_data(maxlen=20000, split='testing'):
                           gpt2.gpt2_tokenizer.sep_token_id],
             'model': vggpt2_model
         },
+        'captioning': {
+            'dataset': captioning_dataset_ts,
+            'vocab_size': len(captioning_dataset_ts.word_map),
+            'decode_fn': lambda pred: [rev_word_map[w] for w in pred],
+            'stop_word': captioning_dataset_ts.word_map['<end>'],
+            'model': captioning_model
+        },
+        'bert': {
+            'dataset': bert_dataset_ts,
+            'vocab_size': len(bert.bert_tokenizer),
+            'decode_fn': nltk_decode_bert_fn,
+            'stop_word': [bert.bert_tokenizer.cls_token_id,
+                          bert.bert_tokenizer.sep_token_id],
+            'model': bert_model
+        }
     }
 
     # Make sure we are evaluating across the same exact samples
+    """
     assert sanity.cross_dataset_similarity(
         captioning_dataset_ts,
         gpt2_dataset_ts,
@@ -147,7 +149,7 @@ def prepare_data(maxlen=20000, split='testing'):
         vggpt2_dataset_ts
     )
     print('Cross similarity check passed: all datasets contain the same elements.')
-
+    """
     return data
 
 
@@ -215,6 +217,98 @@ def gen_plot(results):
     return plot.figure, results
 
 
+def gen_wm_distances(data):
+    with open(paths.data_path('cache', 'evaluation.json'), 'r') as fp:
+        answer_map = json.load(fp)
+    for model_name, parameters in data.items():
+        print('Computing WM distances for {}'.format(model_name))
+        with open(paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(model_name)),
+                  'r') as fp:
+            predictions = json.load(fp)
+
+        distances = compute_corpus_wm_distance(predictions, answer_map)
+
+        with open(paths.resources_path('results', 'wm_distances', 'beam_size_1', 'maxlen_20',
+                                       '{}.json'.format(model_name)), 'w+') as fp:
+            json.dump(distances, fp)
+
+
+def gen_lengths(data):
+    for model_name, parameters in data.items():
+        print('Computing lengths {}'.format(model_name))
+        with open(paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(model_name)),
+                  'r') as fp:
+            predictions = json.load(fp)
+
+        lengths = compute_corpus_pred_len(predictions)
+
+        with open(paths.resources_path('results', 'lengths', 'beam_size_1', 'maxlen_20',
+                                       '{}.json'.format(model_name)), 'w+') as fp:
+            json.dump(lengths, fp)
+
+
+def plot_wm_distances():
+    model_names = ['captioning', 'gpt2', 'vggpt2']
+    n_models = len(model_names)
+    predictions = []
+    plot = {}
+    for name in model_names:
+        with open(paths.resources_path('results', 'wm_distances', 'beam_size_1', 'maxlen_20',
+                                       '{}.json'.format(name)), 'r') as fp:
+            preds = json.load(fp)
+            predictions.append(list(preds.values()))
+
+    for i, values in enumerate(zip(*predictions)):
+        skip = False
+        for v in values:
+            if math.isinf(v):
+                skip = True
+                break
+        if skip:
+            continue
+        for m, v in zip(model_names, values):
+            if m in plot:
+                plot[m].append(v)
+            else:
+                plot[m] = [v]
+
+    df = pd.DataFrame(plot)
+    print(df.head())
+    print(df.describe())
+    # sns.boxplot(x="model", y="wm", data=plot)
+    # plt.show()
+
+
+def plot_lengths():
+    model_names = ['captioning', 'gpt2', 'vggpt2']
+    n_models = len(model_names)
+    predictions = []
+    plot = {}
+    for name in model_names:
+        with open(paths.resources_path('results', 'lengths', 'beam_size_1', 'maxlen_20',
+                                       '{}.json'.format(name)), 'r') as fp:
+            preds = json.load(fp)
+            predictions.append(list(preds.values()))
+
+    for i, values in enumerate(zip(*predictions)):
+        for m, v in zip(model_names, values):
+            if m in plot:
+                plot[m].append(v)
+            else:
+                plot[m] = [v]
+
+    df = pd.DataFrame(plot)
+    print(df.head())
+    print(df.describe())
+    # sns.boxplot(x="model", y="wm", data=plot)
+    # plt.show()
+
+
 if __name__ == '__main__':
-    data = prepare_data(maxlen=50000)
+    data = prepare_data()
     gen_predictions(data, beam_size=1, limit=20)
+    gen_lengths(data)
+    gen_wm_distances(data)
+
+    plot_wm_distances()
+    plot_lengths()

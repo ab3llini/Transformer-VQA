@@ -34,7 +34,7 @@ if __name__ == '__main__':
     device = 'cuda'  # sets device for model and PyTorch tensors
 
     model_basepath = resources_path('models', 'baseline', 'captioning')
-    word_map_file = resources_path(model_basepath, 'data', 'wordmap.json')
+    word_map_file = resources_path(model_basepath, 'data', 'wordmap.2.json')
 
     with open(word_map_file, 'r') as j:
         word_map = json.load(j)
