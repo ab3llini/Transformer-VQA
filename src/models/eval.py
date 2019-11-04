@@ -306,8 +306,8 @@ def plot_lengths():
 
 if __name__ == '__main__':
     data = prepare_data()
-    gen_predictions(data, beam_size=1, limit=20)
-    gen_lengths(data)
+    # gen_predictions(data, beam_size=1, limit=20)
+    # gen_lengths(data)
     gen_wm_distances(data)
 
     plot_wm_distances()
