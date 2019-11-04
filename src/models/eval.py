@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import json
 import math
+from threading import Thread
 
 evaluation_cache = json.load(open(paths.data_path('cache', 'evaluation.json'), 'r'))
 
@@ -141,7 +142,7 @@ def prepare_data(maxlen=50000, split='testing'):
     }
 
     # Make sure we are evaluating across the same exact samples
-    """
+
     assert sanity.cross_dataset_similarity(
         captioning_dataset_ts,
         gpt2_dataset_ts,
@@ -149,13 +150,13 @@ def prepare_data(maxlen=50000, split='testing'):
         vggpt2_dataset_ts
     )
     print('Cross similarity check passed: all datasets contain the same elements.')
-    """
+
     return data
 
 
-def gen_predictions(data, beam_size, limit):
+def generate_model_predictions(data, beam_size, limit, skip=None):
     for model_name, parameters in data.items():
-        if model_name != 'vggpt2':
+        if model_name in skip:
             continue
         print('Generating predictions for {}'.format(model_name))
         predictions = generate_predictions(
@@ -174,143 +175,112 @@ def gen_predictions(data, beam_size, limit):
             json.dump(predictions, fp)
 
 
-def evaluate_bleu1(data, beams):
-    results = {
-        "beam_size": [],
-        "model": [],
-        "BLEU1": []
-    }
-
-    for model_name, parameters in data.items():
-        print('Evaluating {}'.format(model_name))
-
-        for k in beams:
-            bleu, _, _ = compute_corpus_bleu(
-                model=parameters['model'],
-                dataset=parameters['dataset'],
-                decode_fn=parameters['decode_fn'],
-                vocab_size=parameters['vocab_size'],
-                beam_size=k,
-                stop_word=parameters['stop_word'],
-                max_len=10,
-            )
-            results['beam_size'].append(k)
-            results['model'].append(model_name)
-            results['BLEU1'].append(bleu)
-
-    return results
+def compute_single_bleu(bleu, name, predictions, references):
+    print('\t\t({}) Computing bleu{} score.'.format(name, bleu))
+    score = compute_corpus_bleu(list(predictions.values()), references, bleu=bleu)
+    with open(
+            paths.resources_path('results', 'bleu{}'.format(bleu), '{}.json'.format(name)), 'w+'
+    ) as fp:
+        json.dump(score, fp)
 
 
-def gen_plot(results):
-    results = pd.DataFrame(results)
-    sns.set_style("darkgrid")
-    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU1", hue="model", style="model", markers=["o"] * len(data),
-                        data=results)
-    plt.show()
+def evaluate_model(name, answer_map):
+    threads = {}
+    print('\tEvaluating model {}'.format(name))
+    with open(
+            paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(name)),
+            'r'
+    ) as fp:
+        predictions = json.load(fp)
+        # predictions = dict((k, predictions[k]) for k in list(predictions.keys())[:500])
+        references = [answer_map[p] for p in predictions]
 
-    """
-        plot, results = save_and_plot(evaluate_bleu1(data))
+    # Calculate bleu 1,2,3,4 with 8 different smoothing functions
+    for bleu in [1, 2, 3, 4]:
+        thread = Thread(target=compute_single_bleu, args=(bleu, name, predictions, references))
+        thread.start()
+        print('\t\t({}) Thread {} started with target bleu{}'.format(name, len(threads), bleu))
+        threads[bleu] = thread
 
-        # Save files
-        SAVE_DIR = paths.resources_path('results', 'baseline')
-        plot.savefig(os.path.join(SAVE_DIR, 'bleu1_beam2.png'))
-        results.to_csv(os.path.join(SAVE_DIR, 'results_bleu1_beam2.csv'))
-    """
-    return plot.figure, results
+    print('\t\t({}) Computing word mover distance.'.format(name))
+    # Word mover distances
+    distances = compute_corpus_wm_distance(predictions, answer_map)
+
+    with open(paths.resources_path('results', 'word_mover', '{}.json'.format(name)), 'w+') as fp:
+        json.dump(distances, fp)
+
+    print('\t\t({}) Computing lengths.'.format(name))
+    # Lengths
+    lengths = compute_corpus_pred_len(predictions)
+
+    with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'w+') as fp:
+        json.dump(lengths, fp)
+
+    for bleu, thread in threads.items():
+        thread.join()
+        print('\t\t({}) Thread with target bleu{} has completed'.format(name, bleu))
+
+    print('\t\t({}) All done.'.format(name))
 
 
-def gen_wm_distances(data):
+def evaluate(model_names):
+    threads = {}
     with open(paths.data_path('cache', 'evaluation.json'), 'r') as fp:
         answer_map = json.load(fp)
-    for model_name, parameters in data.items():
-        print('Computing WM distances for {}'.format(model_name))
-        with open(paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(model_name)),
-                  'r') as fp:
-            predictions = json.load(fp)
-
-        distances = compute_corpus_wm_distance(predictions, answer_map)
-
-        with open(paths.resources_path('results', 'wm_distances', 'beam_size_1', 'maxlen_20',
-                                       '{}.json'.format(model_name)), 'w+') as fp:
-            json.dump(distances, fp)
-
-
-def gen_lengths(data):
-    for model_name, parameters in data.items():
-        print('Computing lengths {}'.format(model_name))
-        with open(paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(model_name)),
-                  'r') as fp:
-            predictions = json.load(fp)
-
-        lengths = compute_corpus_pred_len(predictions)
-
-        with open(paths.resources_path('results', 'lengths', 'beam_size_1', 'maxlen_20',
-                                       '{}.json'.format(model_name)), 'w+') as fp:
-            json.dump(lengths, fp)
-
-
-def plot_wm_distances():
-    model_names = ['captioning', 'gpt2', 'vggpt2']
-    n_models = len(model_names)
-    predictions = []
-    plot = {}
     for name in model_names:
-        with open(paths.resources_path('results', 'wm_distances', 'beam_size_1', 'maxlen_20',
-                                       '{}.json'.format(name)), 'r') as fp:
-            preds = json.load(fp)
-            predictions.append(list(preds.values()))
-
-    for i, values in enumerate(zip(*predictions)):
-        skip = False
-        for v in values:
-            if math.isinf(v):
-                skip = True
-                break
-        if skip:
-            continue
-        for m, v in zip(model_names, values):
-            if m in plot:
-                plot[m].append(v)
-            else:
-                plot[m] = [v]
-
-    df = pd.DataFrame(plot)
-    print(df.head())
-    print(df.describe())
-    # sns.boxplot(x="model", y="wm", data=plot)
-    # plt.show()
+        thread = Thread(target=evaluate_model, args=(name, answer_map))
+        thread.start()
+        print('Thread {} started with target {}'.format(len(threads), name))
+        threads[name] = thread
+    for model, thread in threads.items():
+        thread.join()
+        print('Thread for model {} has completed'.format(model))
+    print('All done')
 
 
-def plot_lengths():
-    model_names = ['captioning', 'gpt2', 'vggpt2']
-    n_models = len(model_names)
-    predictions = []
-    plot = {}
+def visualize(model_names):
+    bleu_scores = {}
+    wm_scores = {}
+    length_scores = {}
+
+    for bleu in [1, 2, 3, 4]:
+        bleu_scores['bleu{}'.format(bleu)] = {}
+        for name in model_names:
+            with open(paths.resources_path('results', 'bleu{}'.format(bleu), '{}.json'.format(name)), 'r') as fp:
+                bleu_scores['bleu{}'.format(bleu)][name] = json.load(fp)
     for name in model_names:
-        with open(paths.resources_path('results', 'lengths', 'beam_size_1', 'maxlen_20',
-                                       '{}.json'.format(name)), 'r') as fp:
-            preds = json.load(fp)
-            predictions.append(list(preds.values()))
+        with open(paths.resources_path('results', 'word_mover', '{}.json'.format(name)), 'r') as fp:
+            wm_scores[name] = json.load(fp)
+        with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'r') as fp:
+            length_scores[name] = json.load(fp)
 
-    for i, values in enumerate(zip(*predictions)):
-        for m, v in zip(model_names, values):
-            if m in plot:
-                plot[m].append(v)
-            else:
-                plot[m] = [v]
+    # Visualize BLEU scores
+    for bleu_n, models in bleu_scores.items():
+        print('{} scores'.format(bleu_n))
+        for model, scores in models.items():
+            print('Model: {}'.format(model))
+            for smoothing_fn, value in scores.items():
+                print('Smoothing function: {} | Value = {}'.format(smoothing_fn, value))
 
-    df = pd.DataFrame(plot)
-    print(df.head())
-    print(df.describe())
-    # sns.boxplot(x="model", y="wm", data=plot)
-    # plt.show()
+    print('WM scores')
+    for model, scores in wm_scores.items():
+        print('Model: {}'.format(model))
+        values = list(scores.values())
+        df = pd.DataFrame(values, columns=['wm'])
+        with pd.option_context('mode.use_inf_as_na', True):
+            df = df.dropna(subset=['wm'], how='all')
+        print(df.describe())
+
+    print('Length scores')
+    for model, scores in length_scores.items():
+        print('Model: {}'.format(model))
+        values = list(scores.values())
+        df = pd.DataFrame(values, columns=['length'])
+        print(df.describe())
 
 
 if __name__ == '__main__':
-    data = prepare_data()
-    gen_predictions(data, beam_size=1, limit=20)
-    # gen_lengths(data)
-    gen_wm_distances(data)
-
-    plot_wm_distances()
-    plot_lengths()
+    # data = prepare_data()
+    # generate_model_predictions(data, beam_size=1, limit=20)
+    evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
+    visualize(['captioning', 'bert', 'gpt2', 'vggpt2'])
