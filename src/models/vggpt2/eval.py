@@ -51,7 +51,7 @@ def eval_single_sample(model, device, dataset, index):
 
 def get_sample_image(dataset, index):
     set_seed(0)
-    _, _, image = dataset[index]
+    _, _, _, image = dataset[index]
     return image
 
 
@@ -59,7 +59,7 @@ def interactive_evaluation(question, model, device, dataset, index, beam_size=1,
     set_seed(0)
     question = [gpt2_tokenizer.bos_token_id] + gpt2_tokenizer.encode(question) + [gpt2_tokenizer.sep_token_id]
 
-    beam_search_input, ground_truths, image = dataset[index]
+    _, beam_search_input, ground_truths, image = dataset[index]
 
     beam_search_input.args[0] = torch.tensor(question).long()
 
@@ -132,7 +132,8 @@ def init_model_data(epoch):
 
     # Init models and load checkpoint. Disable training mode & move to device
     model = VGGPT2()
-    model.load_state_dict(torch.load(os.path.join(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_{}.pth'.format(epoch))))
+    model.load_state_dict(
+        torch.load(os.path.join(model_basepath, 'checkpoints', 'B_20_LR_5e-05_CHKP_EPOCH_{}.pth'.format(epoch))))
     model.set_train_on(False)
     model.to(device)
 

@@ -14,7 +14,7 @@ import string
 import os
 
 app = Flask(__name__)
-model, device, ts_dataset = eval.init_model_data(epoch=10)
+model, device, ts_dataset = eval.init_model_data(epoch=12)
 
 cache = {'image': None, 'softmaps': None}
 
@@ -91,4 +91,4 @@ def execute():
 
 if __name__ == '__main__':
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.run(host='0.0.0.0', debug=False, port=6006)
+    app.run(host='0.0.0.0', port=6006)
