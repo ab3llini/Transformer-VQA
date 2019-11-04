@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import json
 import math
-from threading import Thread
+from multiprocessing import Process
 
 evaluation_cache = json.load(open(paths.data_path('cache', 'evaluation.json'), 'r'))
 
@@ -185,7 +185,7 @@ def compute_single_bleu(bleu, name, predictions, references):
 
 
 def evaluate_model(name, answer_map):
-    threads = {}
+    processes = {}
     print('\tEvaluating model {}'.format(name))
     with open(
             paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(name)),
@@ -197,10 +197,10 @@ def evaluate_model(name, answer_map):
 
     # Calculate bleu 1,2,3,4 with 8 different smoothing functions
     for bleu in [1, 2, 3, 4]:
-        thread = Thread(target=compute_single_bleu, args=(bleu, name, predictions, references))
-        thread.start()
-        print('\t\t({}) Thread {} started with target bleu{}'.format(name, len(threads), bleu))
-        threads[bleu] = thread
+        process = Process(target=compute_single_bleu, args=(bleu, name, predictions, references))
+        process.start()
+        print('\t\t({}) process {} started with target bleu{}'.format(name, len(processes), bleu))
+        processes[bleu] = process
 
     print('\t\t({}) Computing word mover distance.'.format(name))
     # Word mover distances
@@ -216,25 +216,25 @@ def evaluate_model(name, answer_map):
     with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'w+') as fp:
         json.dump(lengths, fp)
 
-    for bleu, thread in threads.items():
-        thread.join()
-        print('\t\t({}) Thread with target bleu{} has completed'.format(name, bleu))
+    for bleu, process in processes.items():
+        process.join()
+        print('\t\t({}) process with target bleu{} has completed'.format(name, bleu))
 
     print('\t\t({}) All done.'.format(name))
 
 
 def evaluate(model_names):
-    threads = {}
+    processes = {}
     with open(paths.data_path('cache', 'evaluation.json'), 'r') as fp:
         answer_map = json.load(fp)
     for name in model_names:
-        thread = Thread(target=evaluate_model, args=(name, answer_map))
-        thread.start()
-        print('Thread {} started with target {}'.format(len(threads), name))
-        threads[name] = thread
-    for model, thread in threads.items():
-        thread.join()
-        print('Thread for model {} has completed'.format(model))
+        process = Process(target=evaluate_model, args=(name, answer_map))
+        process.start()
+        print('process {} started with target {}'.format(len(processes), name))
+        processes[name] = process
+    for model, process in processes.items():
+        process.join()
+        print('process for model {} has completed'.format(model))
     print('All done')
 
 
@@ -262,6 +262,7 @@ def visualize(model_names):
             for smoothing_fn, value in scores.items():
                 print('Smoothing function: {} | Value = {}'.format(smoothing_fn, value))
 
+    # Visualize VM scores
     print('WM scores')
     for model, scores in wm_scores.items():
         print('Model: {}'.format(model))
@@ -271,6 +272,7 @@ def visualize(model_names):
             df = df.dropna(subset=['wm'], how='all')
         print(df.describe())
 
+    # Visualize Length scores
     print('Length scores')
     for model, scores in length_scores.items():
         print('Model: {}'.format(model))
