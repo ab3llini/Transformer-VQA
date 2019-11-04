@@ -256,11 +256,21 @@ def visualize(model_names):
 
     # Visualize BLEU scores
     for bleu_n, models in bleu_scores.items():
+        plot_data = {
+            'model': [],
+            'smoothing_fn': [],
+            'bleu{}'.format(bleu_n): []
+        }
         print('{} scores'.format(bleu_n))
         for model, scores in models.items():
             print('Model: {}'.format(model))
             for smoothing_fn, value in scores.items():
+                plot_data['model'].append(model)
+                plot_data['smoothing_fn'].append(smoothing_fn)
+                plot_data['bleu{}'.format(bleu_n)].append(value)
                 print('Smoothing function: {} | Value = {}'.format(smoothing_fn, value))
+        plot = sns.barplot(x='model', y='bleu{}'.format(bleu_n), hue='smoothing_fn', data=plot_data)
+        plt.show()
 
     # Visualize VM scores
     print('WM scores')
@@ -284,5 +294,5 @@ def visualize(model_names):
 if __name__ == '__main__':
     # data = prepare_data()
     # generate_model_predictions(data, beam_size=1, limit=20)
-    evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
+    # evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
     visualize(['captioning', 'bert', 'gpt2', 'vggpt2'])

@@ -22,6 +22,7 @@ glove_embeddings = None
 
 
 def compute_corpus_bleu(predictions, references, bleu=1):
+    assert 0 < bleu < 5, Exception('Bleu should be in range 1-4')
     # Compute BLEU score
     smoothing = SmoothingFunction()
     scores = {}
@@ -34,7 +35,14 @@ def compute_corpus_bleu(predictions, references, bleu=1):
         'avg': smoothing.method5,
     }
 
-    weights = [1] * bleu + [0] * (4 - bleu)
+    if bleu == 1:
+        weights = (1, 0, 0, 0)
+    elif bleu == 2:
+        weights = (0.5, 0.5, 0, 0)
+    elif bleu == 3:
+        weights = (0.333, 0.333, 0.333, 0)
+    else:
+        weights = (0.25, 0.25, 0.25, 0.25)
 
     for k, fn in methods.items():
         scores[k] = corpus_bleu(references, predictions, smoothing_function=fn, weights=weights)
