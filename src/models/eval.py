@@ -204,6 +204,7 @@ def evaluate_model(name, answer_map):
 
     print('\t\t({}) Computing word mover distance.'.format(name))
     # Word mover distances
+    """
     distances = compute_corpus_wm_distance(predictions, answer_map)
 
     with open(paths.resources_path('results', 'word_mover', '{}.json'.format(name)), 'w+') as fp:
@@ -215,7 +216,7 @@ def evaluate_model(name, answer_map):
 
     with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'w+') as fp:
         json.dump(lengths, fp)
-
+    """
     for bleu, process in processes.items():
         process.join()
         print('\t\t({}) process with target bleu{} has completed'.format(name, bleu))
@@ -294,5 +295,5 @@ def visualize(model_names):
 if __name__ == '__main__':
     # data = prepare_data()
     # generate_model_predictions(data, beam_size=1, limit=20)
-    # evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
+    evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
     visualize(['captioning', 'bert', 'gpt2', 'vggpt2'])
