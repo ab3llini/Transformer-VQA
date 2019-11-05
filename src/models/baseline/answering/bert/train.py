@@ -42,6 +42,7 @@ def train():
     bert_trainer = Trainer(
         model=model,
         tr_dataset=tr_dataset,
+        ts_dataset=None,
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=lambda out, batch: bert_loss.loss_fn(out[0], batch[0]),
         lr=learning_rate,
