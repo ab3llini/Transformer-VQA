@@ -104,9 +104,9 @@ class CaptionDataset(MultiPurposeDataset):
 
         if not self.evaluating:
             # Return answer + image + length
-            return torch.tensor(answer).long(), \
+            return torch.tensor(answer[:25]).long(), \
                    image, \
-                   torch.tensor(length).long()
+                   torch.tensor(length).long() if length < 25 else torch.tensor(25).long()
         else:
             start = torch.tensor([self.word_map['<start>']]).long()
             image = image
