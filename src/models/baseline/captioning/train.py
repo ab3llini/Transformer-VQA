@@ -16,16 +16,16 @@ from models.baseline.captioning.utils import *
 from torch.utils.tensorboard import SummaryWriter
 
 # Model parameters
-emb_dim = 512  # dimension of word embeddings
-attention_dim = 512  # dimension of attention linear layers
-decoder_dim = 512  # dimension of decoder RNN
-dropout = 0.5
+emb_dim = 256  # dimension of word embeddings
+attention_dim = 256  # dimension of attention linear layers
+decoder_dim = 256  # dimension of decoder RNN
+dropout = 0.4
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
 # Training parameters
 start_epoch = 0
-epochs = 120  # number of epochs to train for (if early stopping is not triggered)
+epochs = 20  # number of epochs to train for (if early stopping is not triggered)
 epochs_since_improvement = 0  # keeps track of number of epochs since there's been an improvement in validation BLEU
 batch_size = 100
 workers = 2  # for data-loading; right now, only 1 works with h5py
@@ -54,9 +54,6 @@ def loss_fn(out, batch):
     # Calculate loss
     ce = nn.CrossEntropyLoss()
     loss = ce(scores, targets)
-
-    # Add doubly stochastic attention regularization
-    loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
     return loss
 
@@ -89,9 +86,9 @@ def train():
         loss=loss_fn,
         lr=decoder_lr,
         batch_size=batch_size,
-        device='cuda',
-        epochs=3,
-        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'latest')),
+        device=device,
+        epochs=epochs,
+        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'long')),
         checkpoint_path=resources_path(model_basepath, 'checkpoints')
     )
 
