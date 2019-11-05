@@ -204,7 +204,7 @@ def evaluate_model(name, answer_map):
 
     print('\t\t({}) Computing word mover distance.'.format(name))
     # Word mover distances
-    """
+
     distances = compute_corpus_wm_distance(predictions, answer_map)
 
     with open(paths.resources_path('results', 'word_mover', '{}.json'.format(name)), 'w+') as fp:
@@ -216,7 +216,7 @@ def evaluate_model(name, answer_map):
 
     with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'w+') as fp:
         json.dump(lengths, fp)
-    """
+
     for bleu, process in processes.items():
         process.join()
         print('\t\t({}) process with target bleu{} has completed'.format(name, bleu))
@@ -266,14 +266,21 @@ def visualize(model_names):
         for model, scores in models.items():
             print('Model: {}'.format(model))
             for smoothing_fn, value in scores.items():
-                plot_data['model'].append(model)
-                plot_data['smoothing_fn'].append(smoothing_fn)
-                plot_data['bleu{}'.format(bleu_n)].append(value)
+                if smoothing_fn in ['NIST-geom', 'avg']:
+                    plot_data['model'].append(model)
+                    plot_data['smoothing_fn'].append(smoothing_fn)
+                    plot_data['bleu{}'.format(bleu_n)].append(value)
                 print('Smoothing function: {} | Value = {}'.format(smoothing_fn, value))
         plot = sns.barplot(x='model', y='bleu{}'.format(bleu_n), hue='smoothing_fn', data=plot_data)
+        plot.set_title('{}'.format(bleu_n))
+        plot.figure.savefig(paths.resources_path('results', 'plots', '{}.png'.format(bleu_n)))
         plt.show()
 
     # Visualize VM scores
+    wm_counts_plot_data = {
+        'model': [],
+        'wm_distances': []
+    }
     print('WM scores')
     for model, scores in wm_scores.items():
         print('Model: {}'.format(model))
@@ -282,7 +289,21 @@ def visualize(model_names):
         with pd.option_context('mode.use_inf_as_na', True):
             df = df.dropna(subset=['wm'], how='all')
         print(df.describe())
+        wm_counts_plot_data['model'].append(model)
+        wm_counts_plot_data['wm_distances'].append(df.shape[0])
+        plot = sns.distplot(df, kde=False)
+        plot.set_title('{} - Word Mover Distance Distribution'.format(model))
+        plot.set(xlabel='WM value', ylabel='Number of samples')
+        plot.figure.savefig(paths.resources_path('results', 'plots', 'wm_{}.png'.format(model)))
+        plt.show()
 
+    # Plot number of comparable WM distances
+    plot = sns.barplot(x='model', y='wm_distances', data=wm_counts_plot_data)
+    plot.set_title('Number of comparable WM Distances')
+    plot.figure.savefig(paths.resources_path('results', 'plots', 'wm_counts.png'))
+    plt.show()
+
+    df = None
     # Visualize Length scores
     print('Length scores')
     for model, scores in length_scores.items():
@@ -290,10 +311,15 @@ def visualize(model_names):
         values = list(scores.values())
         df = pd.DataFrame(values, columns=['length'])
         print(df.describe())
+        plot = sns.distplot(df, kde=False)
+        plot = sns.distplot(df)
+        plot.set_title('{} - Answer Length Distribution'.format(model))
+        plot.figure.savefig(paths.resources_path('results', 'plots', 'length_{}.png'.format(model)))
+        plt.show()
 
 
 if __name__ == '__main__':
     # data = prepare_data()
     # generate_model_predictions(data, beam_size=1, limit=20)
-    evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
+    # evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
     visualize(['captioning', 'bert', 'gpt2', 'vggpt2'])

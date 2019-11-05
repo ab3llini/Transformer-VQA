@@ -5,11 +5,11 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from transformers import BertForQuestionAnswering
+from transformers import BertForMaskedLM
 from utilities.training.trainer import *
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
-from models.bert import loss as bert_loss
+from modules.loss import BERTLoss
 from datasets.bert import *
 
 
@@ -29,7 +29,7 @@ def train():
     bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
     # Load pre-trained model (weights)
-    model = BertForQuestionAnswering.from_pretrained('bert-base-uncased')
+    model = BertForMaskedLM.from_pretrained('bert-base-uncased')
 
     # Set the model in evaluation mode to deactivate the DropOut modules
     # This is IMPORTANT to have reproducible results during evaluation!
@@ -39,18 +39,22 @@ def train():
 
     learning_rate = 5e-5
 
+    loss = BERTLoss(pad_token_id=bert_tokenizer.pad_token_id)
+
+    print('pad token = ', bert_tokenizer.pad_token_id, bert_tokenizer.pad_token)
+
     bert_trainer = Trainer(
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=None,
         optimizer=Adam(model.parameters(), lr=learning_rate),
-        loss=lambda out, batch: bert_loss.loss_fn(out[0], batch[0]),
+        loss=lambda out, batch: loss(out[0], batch[0]),
         lr=learning_rate,
         batch_size=20,
         epochs=10,
         num_workers=2,
-        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'for_QA')),
-        checkpoint_path=resources_path(model_basepath, 'checkpoints', 'for_QA')
+        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'latest')),
+        checkpoint_path=resources_path(model_basepath, 'checkpoints', 'latest')
     )
 
     bert_trainer.train()
