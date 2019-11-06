@@ -30,11 +30,24 @@ if __name__ == '__main__':
     vggpt2_path = paths.resources_path('models', 'vggpt2')
 
     datasets = {
-        'captioning': captioning.CaptionDataset(location=os.path.join(baseline_path, 'captioning', 'data')),
-        'bert': bert.BertDataset(location=os.path.join(baseline_path, 'answering', 'bert', 'data')),
-        'gpt2': gpt2.GPT2Dataset(location=os.path.join(baseline_path, 'answering', 'gpt2', 'data')),
-        'vggpt2': vggpt2.VGGPT2Dataset(location=os.path.join(vggpt2_path, 'data'))
+        'captioning': {
+            'ds': captioning.CaptionDataset(location=os.path.join(baseline_path, 'captioning', 'data')),
+            'cols': ['question_id', 'seq', 'image_path']
+        },
+        'bert': {
+            'ds': bert.BertDataset(location=os.path.join(baseline_path, 'answering', 'bert', 'data')),
+            'cols': ['question_id', 'seq', 'token_type_ids', 'attention_mask', 'question_length']
+        },
+        'gpt2': {
+            'ds': gpt2.GPT2Dataset(location=os.path.join(baseline_path, 'answering', 'gpt2', 'data')),
+            'cols': ['question_id', 'seq', 'question_length']
+        },
+        'vggpt2': {
+            'ds': vggpt2.VGGPT2Dataset(location=os.path.join(vggpt2_path, 'data')),
+            'cols': ['question_id', 'seq', 'image_path', 'question_length']
+        }
     }
 
-    for model, dataset in datasets.items():
-        print(pd.DataFrame(dataset.data).head())
+    for model, data in datasets.items():
+        df = pd.DataFrame(data['ds'], columns=data['cols'])
+        print(df.describe())
