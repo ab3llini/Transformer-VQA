@@ -16,9 +16,9 @@ from models.baseline.captioning.utils import *
 from torch.utils.tensorboard import SummaryWriter
 
 # Model parameters
-emb_dim = 512  # dimension of word embeddings
-attention_dim = 512  # dimension of attention linear layers
-decoder_dim = 512  # dimension of decoder RNN
+emb_dim = 256  # dimension of word embeddings
+attention_dim = 256  # dimension of attention linear layers
+decoder_dim = 256  # dimension of decoder RNN
 dropout = 0.4
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead

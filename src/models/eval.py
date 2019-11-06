@@ -44,7 +44,7 @@ def nltk_decode_bert_fn(pred):
         return ''
 
 
-def prepare_data(maxlen=50000, split='testing'):
+def prepare_data(maxlen=50000, split='testing', skip=None):
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
 
@@ -85,7 +85,7 @@ def prepare_data(maxlen=50000, split='testing'):
 
     captioning_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'captioning', 'checkpoints', 'B_100_LR_0.0004_CHKP_EPOCH_1.pth')))
+            os.path.join(baseline_path, 'captioning', 'checkpoints', 'B_20_LR_0.0004_CHKP_EPOCH_14.pth')))
 
     gpt2_model.load_state_dict(
         torch.load(
@@ -154,7 +154,7 @@ def prepare_data(maxlen=50000, split='testing'):
     return data
 
 
-def generate_model_predictions(data, beam_size, limit, skip=None):
+def generate_model_predictions(data, beam_size, limit, skip=None, destination='predictions'):
     for model_name, parameters in data.items():
         if model_name in skip:
             continue
@@ -168,27 +168,27 @@ def generate_model_predictions(data, beam_size, limit, skip=None):
             stop_word=parameters['stop_word'],
             max_len=limit,
         )
-        with open(paths.resources_path('predictions',
+        with open(paths.resources_path(destination,
                                        'beam_size_{}'.format(beam_size),
                                        'maxlen_{}'.format(limit),
                                        model_name + '.json'), 'w+') as fp:
             json.dump(predictions, fp)
 
 
-def compute_single_bleu(bleu, name, predictions, references):
+def compute_single_bleu(bleu, name, predictions, references, destination):
     print('\t\t({}) Computing bleu{} score.'.format(name, bleu))
     score = compute_corpus_bleu(list(predictions.values()), references, bleu=bleu)
     with open(
-            paths.resources_path('results', 'bleu{}'.format(bleu), '{}.json'.format(name)), 'w+'
+            paths.resources_path(destination, 'bleu{}'.format(bleu), '{}.json'.format(name)), 'w+'
     ) as fp:
         json.dump(score, fp)
 
 
-def evaluate_model(name, answer_map):
+def evaluate_model(name, answer_map, source, destination):
     processes = {}
     print('\tEvaluating model {}'.format(name))
     with open(
-            paths.resources_path('predictions', 'beam_size_1', 'maxlen_20', '{}.json'.format(name)),
+            paths.resources_path(source, 'beam_size_1', 'maxlen_20', '{}.json'.format(name)),
             'r'
     ) as fp:
         predictions = json.load(fp)
@@ -197,7 +197,7 @@ def evaluate_model(name, answer_map):
 
     # Calculate bleu 1,2,3,4 with 8 different smoothing functions
     for bleu in [1, 2, 3, 4]:
-        process = Process(target=compute_single_bleu, args=(bleu, name, predictions, references))
+        process = Process(target=compute_single_bleu, args=(bleu, name, predictions, references, destination))
         process.start()
         print('\t\t({}) process {} started with target bleu{}'.format(name, len(processes), bleu))
         processes[bleu] = process
@@ -207,14 +207,14 @@ def evaluate_model(name, answer_map):
 
     distances = compute_corpus_wm_distance(predictions, answer_map)
 
-    with open(paths.resources_path('results', 'word_mover', '{}.json'.format(name)), 'w+') as fp:
+    with open(paths.resources_path(destination, 'word_mover', '{}.json'.format(name)), 'w+') as fp:
         json.dump(distances, fp)
 
     print('\t\t({}) Computing lengths.'.format(name))
     # Lengths
     lengths = compute_corpus_pred_len(predictions)
 
-    with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'w+') as fp:
+    with open(paths.resources_path(destination, 'length', '{}.json'.format(name)), 'w+') as fp:
         json.dump(lengths, fp)
 
     for bleu, process in processes.items():
@@ -224,12 +224,12 @@ def evaluate_model(name, answer_map):
     print('\t\t({}) All done.'.format(name))
 
 
-def evaluate(model_names):
+def evaluate(model_names, source='predictions', destination='results'):
     processes = {}
     with open(paths.data_path('cache', 'evaluation.json'), 'r') as fp:
         answer_map = json.load(fp)
     for name in model_names:
-        process = Process(target=evaluate_model, args=(name, answer_map))
+        process = Process(target=evaluate_model, args=(name, answer_map, source, destination))
         process.start()
         print('process {} started with target {}'.format(len(processes), name))
         processes[name] = process
@@ -239,7 +239,7 @@ def evaluate(model_names):
     print('All done')
 
 
-def visualize(model_names):
+def visualize(model_names, source='results'):
     bleu_scores = {}
     wm_scores = {}
     length_scores = {}
@@ -247,12 +247,12 @@ def visualize(model_names):
     for bleu in [1, 2, 3, 4]:
         bleu_scores['bleu{}'.format(bleu)] = {}
         for name in model_names:
-            with open(paths.resources_path('results', 'bleu{}'.format(bleu), '{}.json'.format(name)), 'r') as fp:
+            with open(paths.resources_path(source, 'bleu{}'.format(bleu), '{}.json'.format(name)), 'r') as fp:
                 bleu_scores['bleu{}'.format(bleu)][name] = json.load(fp)
     for name in model_names:
-        with open(paths.resources_path('results', 'word_mover', '{}.json'.format(name)), 'r') as fp:
+        with open(paths.resources_path(source, 'word_mover', '{}.json'.format(name)), 'r') as fp:
             wm_scores[name] = json.load(fp)
-        with open(paths.resources_path('results', 'length', '{}.json'.format(name)), 'r') as fp:
+        with open(paths.resources_path(source, 'length', '{}.json'.format(name)), 'r') as fp:
             length_scores[name] = json.load(fp)
 
     # Visualize BLEU scores
@@ -273,7 +273,7 @@ def visualize(model_names):
                 print('Smoothing function: {} | Value = {}'.format(smoothing_fn, value))
         plot = sns.barplot(x='model', y='bleu{}'.format(bleu_n), hue='smoothing_fn', data=plot_data)
         plot.set_title('{}'.format(bleu_n))
-        plot.figure.savefig(paths.resources_path('results', 'plots', '{}.png'.format(bleu_n)))
+        plot.figure.savefig(paths.resources_path(source, 'plots', '{}.png'.format(bleu_n)))
         plt.show()
 
     # Visualize VM scores
@@ -294,13 +294,13 @@ def visualize(model_names):
         plot = sns.distplot(df, kde=False)
         plot.set_title('{} - Word Mover Distance Distribution'.format(model))
         plot.set(xlabel='WM value', ylabel='Number of samples')
-        plot.figure.savefig(paths.resources_path('results', 'plots', 'wm_{}.png'.format(model)))
+        plot.figure.savefig(paths.resources_path(source, 'plots', 'wm_{}.png'.format(model)))
         plt.show()
 
     # Plot number of comparable WM distances
     plot = sns.barplot(x='model', y='wm_distances', data=wm_counts_plot_data)
     plot.set_title('Number of comparable WM Distances')
-    plot.figure.savefig(paths.resources_path('results', 'plots', 'wm_counts.png'))
+    plot.figure.savefig(paths.resources_path(source, 'plots', 'wm_counts.png'))
     plt.show()
 
     df = None
@@ -314,12 +314,36 @@ def visualize(model_names):
         plot = sns.distplot(df, kde=False)
         plot = sns.distplot(df)
         plot.set_title('{} - Answer Length Distribution'.format(model))
-        plot.figure.savefig(paths.resources_path('results', 'plots', 'length_{}.png'.format(model)))
+        plot.figure.savefig(paths.resources_path(source, 'plots', 'length_{}.png'.format(model)))
         plt.show()
 
 
 if __name__ == '__main__':
-    # data = prepare_data()
-    # generate_model_predictions(data, beam_size=1, limit=20)
-    # evaluate(['captioning', 'bert', 'gpt2', 'vggpt2'])
-    visualize(['captioning', 'bert', 'gpt2', 'vggpt2'])
+    """
+    Configuration
+    """
+    gen_preds = False
+    gen_results = True
+    gen_plots = True
+    prediction_dest = 'new_predictions'
+    result_dest = 'new_results'
+
+    if gen_preds:
+        generate_model_predictions(
+            data=prepare_data(),
+            beam_size=1,
+            limit=20,
+            skip=['bert', 'gpt2', 'vggpt2'],
+            destination=prediction_dest
+        )
+    if gen_results:
+        evaluate(
+            model_names=['captioning', 'bert', 'gpt2', 'vggpt2'],
+            source=prediction_dest,
+            destination=result_dest
+        )
+    if gen_plots:
+        visualize(
+            model_names=['captioning', 'bert', 'gpt2', 'vggpt2'],
+            source=result_dest
+        )
