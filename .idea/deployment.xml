@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="UbuntuRig">
+    <serverData>
+      <paths name="Copy of project-level server 'UbuntuRig'">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/alberto/PycharmProjects/BlindLess" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/Annotations" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/Images" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/Questions" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/QuestionTypes" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/datasets" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="UbuntuRig">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/alberto/PycharmProjects/BlindLess" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/Annotations" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/Images" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/Questions" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/QuestionTypes" />
+            <excludedPath path="/home/alberto/PycharmProjects/BlindLess/data/vqa/datasets" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>
