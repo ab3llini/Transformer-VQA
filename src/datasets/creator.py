@@ -163,8 +163,8 @@ class DatasetCreator:
         assert process_mode in ['list', 'dict'], Exception('Undefined elem_process_mode in create args')
 
         cache = self.__load_cached(split=split)
-        if cache is None or len(cache) != size:
-            self.__build(split=split, size=size)
+        if cache is None or len(cache) != (size + size * 0.5):
+            self.__build(split=split, size=(size + size * 0.5))  # Make cache 1.5x bigger
             cache = self.__load_cached(split=split)
 
         if destination is None:
@@ -209,12 +209,12 @@ class DatasetCreator:
         tr_cache = self.__load_cached(split='training')
         ts_cache = self.__load_cached(split='testing')
 
-        if tr_cache is None or len(tr_cache) != tr_size:
-            self.__build(split='training', size=tr_size)
+        if tr_cache is None or len(tr_cache) != (tr_size + tr_size * 0.5):
+            self.__build(split='training', size=(tr_size + tr_size * 0.5))  # Make cache 1.5x bigger
             tr_cache = self.__load_cached(split='training')
 
-        if ts_cache is None or len(ts_cache) != ts_size:
-            self.__build(split='testing', size=ts_size)
+        if ts_cache is None or len(ts_cache) != (ts_size + ts_size * 0.5):
+            self.__build(split='testing', size=(ts_size + ts_size * 0.5))  # Make cache 1.5x bigger
             ts_cache = self.__load_cached(split='testing')
 
         if tr_destination is None:
@@ -243,7 +243,7 @@ class DatasetCreator:
 
         if post_processing_fn is not None:
             print('Post processing..')
-            tr_data, ts_data = post_processing_fn(tr_data, ts_data)
+            tr_data, ts_data = post_processing_fn(tr_data, ts_data, tr_size, ts_size)
 
         with open(os.path.join('{}.json'.format(tr_destination)), 'w+') as fp:
             json.dump(tr_data, fp)

@@ -11,12 +11,16 @@ from transformers import BertTokenizer
 from datasets.creator import DatasetCreator, MultiPurposeDataset
 from torch.utils.data import Dataset
 from utilities.evaluation.beam_search import BeamSearchInput
+from collections import Counter
 
 bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 
 def create_datasets(base_path):
-    longest_answer = {'training': 0, 'testing': 0}
+    seq_counter = {
+        'training': Counter(),
+        'testing': Counter()
+    }
 
     def elem_processing_fn(question_id, question, image_path, answer, split):
         question_tkn = bert_tokenizer.encode(question)
@@ -24,11 +28,7 @@ def create_datasets(base_path):
         question_tkn_len = len(question_tkn)
         answer_tkn_len = len(answer_tkn)
 
-        if longest_answer[split] < answer_tkn_len:
-            longest_answer[split] = answer_tkn_len
-
-        if longest_answer[split] < answer_tkn_len + question_tkn_len:
-            longest_answer[split] = answer_tkn_len + question_tkn_len
+        seq_counter[split].update([answer_tkn_len + question_tkn_len])
 
         # Add BOS, SEP & EOS tokens
         question_tkn = [bert_tokenizer.cls_token_id] + question_tkn + [bert_tokenizer.sep_token_id]
@@ -45,35 +45,65 @@ def create_datasets(base_path):
 
         return [question_id, sequence, token_types, input_mask, question_tkn_len + 2]
 
-    def post_processing_fn(tr_data, ts_data):
+    def post_processing_fn(tr_data, ts_data, tr_size, ts_size):
 
-        print('Longest = {}'.format(longest_answer))
+        tr_removed = len(tr_data)
+        ts_removed = len(ts_data)
+
+        print('Removing short samples checking frequencies')
+        tr_data = list(filter(lambda item: seq_counter['training'][len(item[1])] > 1000, tr_data))
+        ts_data = list(filter(lambda item: seq_counter['testing'][len(item[1])] > 1000, ts_data))
+
+        print(seq_counter)
+
+        tr_removed -= len(tr_data)
+        ts_removed -= len(ts_data)
+
+        print('Removed {} from training data and {} from testing data'.format(tr_removed, ts_removed))
+
+        tr_data = tr_data[:tr_size]
+        ts_data = ts_data[:ts_size]
+
+        print('Len tr = {}, len ts = {}'.format(len(tr_data), len(ts_data)))
+
+        max_len_tr = 0
+        max_len_ts = 0
+
+        for length, freq in seq_counter['training'].items():
+            if freq > 1000:
+                if max_len_tr < length:
+                    max_len_tr = length
+
+        for length, freq in seq_counter['testing'].items():
+            if freq > 1000:
+                if max_len_ts < length:
+                    max_len_ts = length
 
         # Pad sequences
         print('Padding training sequences..')
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=1, value=int(bert_tokenizer.pad_token_id),
-                                               maxlen=longest_answer['training'] + 3)
+                                               maxlen=max_len_tr + 3)
 
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=2, value=int(1),
-                                               maxlen=longest_answer['training'] + 3)
+                                               maxlen=max_len_tr + 3)
 
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=3, value=int(0),
-                                               maxlen=longest_answer['training'] + 3)
+                                               maxlen=max_len_tr + 3)
 
         # Pad sequences
         print('Padding testing sequences..')
         ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=int(bert_tokenizer.pad_token_id),
-                                               maxlen=longest_answer['testing'] + 3)
+                                               maxlen=max_len_ts + 3)
 
         ts_data = DatasetCreator.pad_sequences(ts_data, axis=2, value=int(1),
-                                               maxlen=longest_answer['testing'] + 3)
+                                               maxlen=max_len_ts + 3)
 
         ts_data = DatasetCreator.pad_sequences(ts_data, axis=3, value=int(0),
-                                               maxlen=longest_answer['testing'] + 3)
+                                               maxlen=max_len_ts + 3)
 
         return tr_data, ts_data
 
-    DatasetCreator().create_together(tr_size=1000000, ts_size=200000,
+    DatasetCreator().create_together(tr_size=1000000, ts_size=100000,
                                      tr_destination=os.path.join(base_path, 'training'),
                                      ts_destination=os.path.join(base_path, 'testing'),
                                      elem_processing_fn=elem_processing_fn, post_processing_fn=post_processing_fn)

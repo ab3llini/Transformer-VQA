@@ -25,9 +25,9 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 
 # Training parameters
 start_epoch = 0
-epochs = 20  # number of epochs to train for (if early stopping is not triggered)
+epochs = 10  # number of epochs to train for (if early stopping is not triggered)
 epochs_since_improvement = 0  # keeps track of number of epochs since there's been an improvement in validation BLEU
-batch_size = 20
+batch_size = 192
 workers = 2  # for data-loading; right now, only 1 works with h5py
 encoder_lr = 1e-4  # learning rate for encoder if fine-tuning
 decoder_lr = 4e-4  # learning rate for decoder
@@ -83,7 +83,7 @@ def train():
     caption_trainer = Trainer(
         model=model,
         tr_dataset=tr_dataset,
-        ts_dataset=ts_dataset,
+        ts_dataset=None,
         optimizer=torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()),
                                    lr=decoder_lr),
         loss=loss_fn,
@@ -91,8 +91,8 @@ def train():
         batch_size=batch_size,
         device=device,
         epochs=epochs,
-        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'long')),
-        checkpoint_path=resources_path(model_basepath, 'checkpoints')
+        tensorboard=SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'latest')),
+        checkpoint_path=resources_path(model_basepath, 'checkpoints', 'latest')
     )
 
     caption_trainer.train()

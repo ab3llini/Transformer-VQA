@@ -18,19 +18,53 @@ def create_datasets(base_path, min_word_freq=50):
     word_freq = Counter()
     word_map = {}
 
-    longest_answer = {'training': 0, 'testing': 0}
+    seq_counter = {
+        'training': Counter(),
+        'testing': Counter()
+    }
 
     def elem_processing_fn(question_id, question, image_path, answer, split):
         answer_tkn = nltk.word_tokenize(answer)  # We pick always the first answer
         word_freq.update(answer_tkn)  # Update word frequency counts
         answer_tkn_len = len(answer_tkn)
 
-        if longest_answer[split] < answer_tkn_len:
-            longest_answer[split] = answer_tkn_len
+        seq_counter[split].update([answer_tkn_len])
 
         return [question_id, answer_tkn, image_path]
 
-    def post_processing_fn(tr_data, ts_data):
+    def post_processing_fn(tr_data, ts_data, tr_size, ts_size):
+
+        tr_removed = len(tr_data)
+        ts_removed = len(ts_data)
+
+        print('Removing short samples checking frequencies')
+        tr_data = list(filter(lambda item: seq_counter['training'][len(item[1])] > 1000, tr_data))
+        ts_data = list(filter(lambda item: seq_counter['testing'][len(item[1])] > 1000, ts_data))
+
+        print(seq_counter)
+
+        tr_removed -= len(tr_data)
+        ts_removed -= len(ts_data)
+
+        print('Removed {} from training data and {} from testing data'.format(tr_removed, ts_removed))
+
+        tr_data = tr_data[:tr_size]
+        ts_data = ts_data[:ts_size]
+
+        print('Len tr = {}, len ts = {}'.format(len(tr_data), len(ts_data)))
+
+        max_len_tr = 0
+        max_len_ts = 0
+
+        for length, freq in seq_counter['training'].items():
+            if freq > 1000:
+                if max_len_tr < length:
+                    max_len_tr = length
+
+        for length, freq in seq_counter['testing'].items():
+            if freq > 1000:
+                if max_len_ts < length:
+                    max_len_ts = length
 
         # Create word map
         words = [w for w in word_freq.keys() if word_freq[w] > min_word_freq]
@@ -53,20 +87,20 @@ def create_datasets(base_path, min_word_freq=50):
         # Pad sequences
         print('Padding training sequences..')
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=1, value=word_map['<pad>'],
-                                               maxlen=longest_answer['training'] + 2)
+                                               maxlen=max_len_tr + 2)
 
         # Pad sequences
         print('Padding testing sequences..')
         ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=word_map['<pad>'],
-                                               maxlen=longest_answer['testing'] + 2)
+                                               maxlen=max_len_ts + 2)
 
         print('Dumping word map..')
-        with open(os.path.join(base_path, 'wordmap.2.json'), 'w') as j:
+        with open(os.path.join(base_path, 'wordmap.json'), 'w') as j:
             json.dump(word_map, j)
 
         return tr_data, ts_data
 
-    DatasetCreator().create_together(tr_size=1000000, ts_size=200000,
+    DatasetCreator().create_together(tr_size=1000000, ts_size=100000,
                                      tr_destination=os.path.join(base_path, 'training'),
                                      ts_destination=os.path.join(base_path, 'testing'),
                                      elem_processing_fn=elem_processing_fn, post_processing_fn=post_processing_fn)

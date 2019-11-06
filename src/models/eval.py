@@ -93,7 +93,7 @@ def prepare_data(maxlen=50000, split='testing', skip=None):
 
     bert_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
+            os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_9.pth')))
 
     vggpt2_model.load_state_dict(
         torch.load(os.path.join(vggpt2_path, 'checkpoints', 'B_20_LR_5e-05_CHKP_EPOCH_{}.pth'.format(12))))
@@ -322,7 +322,7 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = False
+    gen_preds = True
     gen_results = True
     gen_plots = True
     prediction_dest = 'new_predictions'
@@ -333,7 +333,7 @@ if __name__ == '__main__':
             data=prepare_data(),
             beam_size=1,
             limit=20,
-            skip=['bert', 'gpt2', 'vggpt2'],
+            skip=['captioning', 'gpt2', 'vggpt2'],
             destination=prediction_dest
         )
     if gen_results:
