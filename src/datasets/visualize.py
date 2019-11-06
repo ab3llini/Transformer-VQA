@@ -49,5 +49,5 @@ if __name__ == '__main__':
     }
 
     for model, data in datasets.items():
-        df = pd.DataFrame(data['ds'], columns=data['cols'])
+        df = pd.DataFrame(data['ds'].data, columns=data['cols'])
         print(df.describe())
