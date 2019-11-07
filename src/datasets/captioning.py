@@ -24,32 +24,30 @@ def create_datasets(base_path, min_word_freq=30):
     }
 
     def elem_processing_fn(question_id, question, image_path, answer, split):
-        answer_tkn = nltk.word_tokenize(answer)  # We pick always the first answer
-        word_freq.update(answer_tkn)  # Update word frequency counts
-        answer_tkn_len = len(answer_tkn)
 
-        seq_counter[split].update([answer_tkn_len])
-
-        return [question_id, answer_tkn, image_path]
+        if split == 'training':
+            answer_tkn = nltk.word_tokenize(answer)  # We pick always the first answer
+            word_freq.update(answer_tkn)  # Update word frequency counts
+            answer_tkn_len = len(answer_tkn)
+            seq_counter[split].update([answer_tkn_len])
+            return [question_id, answer_tkn, image_path]
+        else:
+            return [question_id, image_path]
 
     def post_processing_fn(tr_data, ts_data, tr_size, ts_size):
 
         tr_removed = len(tr_data)
-        ts_removed = len(ts_data)
 
         print('Removing short samples checking frequencies')
         tr_data = list(filter(lambda item: seq_counter['training'][len(item[1])] > 1000, tr_data))
-        ts_data = list(filter(lambda item: seq_counter['testing'][len(item[1])] > 1000, ts_data))
 
         print(seq_counter)
 
         tr_removed -= len(tr_data)
-        ts_removed -= len(ts_data)
 
-        print('Removed {} from training data and {} from testing data'.format(tr_removed, ts_removed))
+        print('Removed {} from training data and {} from testing data'.format(tr_removed, 0))
 
         tr_data = tr_data[:tr_size]
-        ts_data = ts_data[:ts_size]
 
         print('Len tr = {}, len ts = {}'.format(len(tr_data), len(ts_data)))
 
@@ -60,11 +58,6 @@ def create_datasets(base_path, min_word_freq=30):
             if freq > 1000:
                 if max_len_tr < length:
                     max_len_tr = length
-
-        for length, freq in seq_counter['testing'].items():
-            if freq > 1000:
-                if max_len_ts < length:
-                    max_len_ts = length
 
         # Create word map
         words = [w for w in word_freq.keys() if word_freq[w] > min_word_freq]
@@ -79,20 +72,10 @@ def create_datasets(base_path, min_word_freq=30):
             sample[1] = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in
                                                  sample[1]] + [word_map['<end>']]
 
-        print('Adding special tokens to testing set..')
-        for i, sample in enumerate(tqdm(ts_data)):
-            sample[1] = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in
-                                                 sample[1]] + [word_map['<end>']]
-
         # Pad sequences
         print('Padding training sequences..')
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=1, value=word_map['<pad>'],
                                                maxlen=max_len_tr + 2)
-
-        # Pad sequences
-        print('Padding testing sequences..')
-        ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=word_map['<pad>'],
-                                               maxlen=max_len_ts + 2)
 
         print('Dumping word map..')
         with open(os.path.join(base_path, 'wordmap.json'), 'w') as j:
@@ -131,16 +114,15 @@ class CaptionDataset(MultiPurposeDataset):
         if not self.evaluating:
             _, answer, image_path = sample
         else:
-            __id, answer, image_path = sample
+            __id, image_path = sample
         image = load_image(image_rel_path=image_path)
         image = normalized_tensor_image(resize_image(image, size=256))
-        length = len(answer)
 
         if not self.evaluating:
             # Return answer + image + length
-            return torch.tensor(answer[:25]).long(), \
+            return torch.tensor(answer).long(), \
                    image, \
-                   torch.tensor(length).long() if length < 25 else torch.tensor(25).long()
+                   torch.tensor(len(answer)).long()
         else:
             start = torch.tensor([self.word_map['<start>']]).long()
             image = image

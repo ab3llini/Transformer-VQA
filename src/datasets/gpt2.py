@@ -25,41 +25,42 @@ def create_datasets(base_path):
     }
 
     def elem_processing_fn(question_id, question, image_path, answer, split):
+
         question_tkn = gpt2_tokenizer.encode(question)
-        answer_tkn = gpt2_tokenizer.encode(answer)
-        question_tkn_len = len(question_tkn)
-        answer_tkn_len = len(answer_tkn)
-
-        seq_counter[split].update([answer_tkn_len + question_tkn_len])
-
-
-        # Add BOS, SEP & EOS tokens
         question_tkn = [gpt2_tokenizer.bos_token_id] + question_tkn + [gpt2_tokenizer.sep_token_id]
-        answer_tkn = answer_tkn + [gpt2_tokenizer.eos_token_id]
+        question_tkn_len = len(question_tkn)
 
-        # Concatenate Q+A
-        sequence = question_tkn + answer_tkn
+        if split == 'training':
 
-        return [question_id, sequence, question_tkn_len + 2]
+            answer_tkn = gpt2_tokenizer.encode(answer)
+            answer_tkn = answer_tkn + [gpt2_tokenizer.eos_token_id]
+            answer_tkn_len = len(answer_tkn)
+
+            seq_counter[split].update([answer_tkn_len + question_tkn_len])
+
+            sequence = question_tkn + answer_tkn
+
+            return [question_id, sequence]
+        else:
+            seq_counter[split].update([question_tkn_len])
+
+            return [question_id, question_tkn]
+
 
     def post_processing_fn(tr_data, ts_data, tr_size, ts_size):
 
         tr_removed = len(tr_data)
-        ts_removed = len(ts_data)
 
         print('Removing short samples checking frequencies')
         tr_data = list(filter(lambda item: seq_counter['training'][len(item[1])] > 1000, tr_data))
-        ts_data = list(filter(lambda item: seq_counter['testing'][len(item[1])] > 1000, ts_data))
 
         print(seq_counter)
 
         tr_removed -= len(tr_data)
-        ts_removed -= len(ts_data)
 
-        print('Removed {} from training data and {} from testing data'.format(tr_removed, ts_removed))
+        print('Removed {} from training data and {} from testing data'.format(tr_removed, 0))
 
         tr_data = tr_data[:tr_size]
-        ts_data = ts_data[:ts_size]
 
         print('Len tr = {}, len ts = {}'.format(len(tr_data), len(ts_data)))
 
@@ -72,20 +73,14 @@ def create_datasets(base_path):
                     max_len_tr = length
 
         for length, freq in seq_counter['testing'].items():
-            if freq > 1000:
-                if max_len_ts < length:
-                    max_len_ts = length
+            if max_len_ts < length:
+                max_len_ts = length
 
 
         # Pad sequences
         print('Padding training sequences..')
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=1, value=int(gpt2_tokenizer.pad_token_id),
                                                maxlen=max_len_tr)
-
-        # Pad sequences
-        print('Padding testing sequences..')
-        ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=int(gpt2_tokenizer.pad_token_id),
-                                               maxlen=max_len_ts)
 
         return tr_data, ts_data
 
@@ -101,15 +96,15 @@ class GPT2Dataset(MultiPurposeDataset):
 
         sample = self.data[item]
         if not self.evaluating:
-            _, sequence, _ = sample
+            _, sequence = sample
         else:
-            __id, sequence, ql = sample
+            __id, question = sample
 
         if not self.evaluating:
             # Return answer + image + length
             return torch.tensor(sequence).long()
         else:
-            question = torch.tensor(sequence[:ql]).long()
+            question = torch.tensor(question).long()
             beam_input = BeamSearchInput(0, 0, question)
             ground_truths = self.evaluation_data[str(__id)]
             return __id, beam_input, ground_truths

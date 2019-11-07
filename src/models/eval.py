@@ -85,18 +85,18 @@ def prepare_data(maxlen=50000, split='testing', skip=None):
 
     captioning_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'captioning', 'checkpoints', 'B_20_LR_0.0004_CHKP_EPOCH_14.pth')))
+            os.path.join(baseline_path, 'captioning', 'checkpoints', 'best.pth')))
 
     gpt2_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'answering', 'gpt2', 'checkpoints', 'B_64_LR_5e-05_CHKP_EPOCH_2.pth')))
+            os.path.join(baseline_path, 'answering', 'gpt2', 'checkpoints', 'best.pth')))
 
     bert_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_9.pth')))
+            os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'best.pth')))
 
     vggpt2_model.load_state_dict(
-        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'B_20_LR_5e-05_CHKP_EPOCH_{}.pth'.format(12))))
+        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'best.pth')))
     vggpt2_model.set_train_on(False)
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))
@@ -156,7 +156,7 @@ def prepare_data(maxlen=50000, split='testing', skip=None):
 
 def generate_model_predictions(data, beam_size, limit, skip=None, destination='predictions'):
     for model_name, parameters in data.items():
-        if model_name in skip:
+        if skip is not None and model_name in skip:
             continue
         print('Generating predictions for {}'.format(model_name))
         predictions = generate_predictions(
@@ -325,15 +325,14 @@ if __name__ == '__main__':
     gen_preds = True
     gen_results = True
     gen_plots = True
-    prediction_dest = 'new_predictions'
-    result_dest = 'new_results'
+    prediction_dest = 'tmp_predictions'
+    result_dest = 'tmp_results'
 
     if gen_preds:
         generate_model_predictions(
-            data=prepare_data(),
+            data=prepare_data(maxlen=100),
             beam_size=1,
             limit=20,
-            skip=['captioning', 'gpt2', 'vggpt2'],
             destination=prediction_dest
         )
     if gen_results:

@@ -164,7 +164,7 @@ class DatasetCreator:
 
         cache = self.__load_cached(split=split)
         if cache is None or len(cache) != (size + size * 0.5):
-            self.__build(split=split, size=(size + size * 0.5))  # Make cache 1.5x bigger
+            self.__build(split=split, size=(size + size * 0.5) if split == 'training' else size)  # Make cache 1.5x bigger
             cache = self.__load_cached(split=split)
 
         if destination is None:
@@ -213,8 +213,8 @@ class DatasetCreator:
             self.__build(split='training', size=(tr_size + tr_size * 0.5))  # Make cache 1.5x bigger
             tr_cache = self.__load_cached(split='training')
 
-        if ts_cache is None or len(ts_cache) != (ts_size + ts_size * 0.5):
-            self.__build(split='testing', size=(ts_size + ts_size * 0.5))  # Make cache 1.5x bigger
+        if ts_cache is None or len(ts_cache) != ts_size:
+            self.__build(split='testing', size=ts_size)  # Make cache 1.5x bigger
             ts_cache = self.__load_cached(split='testing')
 
         if tr_destination is None:
