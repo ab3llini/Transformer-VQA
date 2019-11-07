@@ -14,7 +14,7 @@ from collections import Counter
 from utilities.evaluation.beam_search import BeamSearchInput
 
 
-def create_datasets(base_path, min_word_freq=50):
+def create_datasets(base_path, min_word_freq=30):
     word_freq = Counter()
     word_map = {}
 

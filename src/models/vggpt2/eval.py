@@ -123,7 +123,7 @@ def evaluate_bleu_score():
     results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
 
 
-def init_model_data(epoch):
+def init_model_data(checkpoint):
     # Set the current device
     device = 'cuda'
 
@@ -133,27 +133,12 @@ def init_model_data(epoch):
     # Init models and load checkpoint. Disable training mode & move to device
     model = VGGPT2()
     model.load_state_dict(
-        torch.load(os.path.join(model_basepath, 'checkpoints', 'B_20_LR_5e-05_CHKP_EPOCH_{}.pth'.format(epoch))))
+        torch.load(os.path.join(model_basepath, 'checkpoints', checkpoint)))
     model.set_train_on(False)
     model.to(device)
 
     # Load testing dataset in RAM
-    ts_dataset = VGGPT2Dataset(location=os.path.join(model_basepath, 'data'), split='testing', evaluating=True,
-                               maxlen=20000)
-
-    # Create a specific data loader that returns equal batch for bleu evaluation.
-    # loader = DataLoader(dataset=ts_dataset, shuffle=True, batch_size=10, pin_memory=True, num_workers=4)
-
-    # gpt2_compare()
-
-    # it = iter(loader)
-    # sample = next(it)
-
-    # To evaluate bleu score uncomment the following line
-    # evaluate_bleu_score()
-
-    # To evaluate using the VQA eval tool uncomment this line
-    # evaluate_vqa()
+    ts_dataset = VGGPT2Dataset(location=os.path.join(model_basepath, 'data'), split='testing', evaluating=True)
 
     return model, device, ts_dataset
 

@@ -80,12 +80,12 @@ def create_datasets(base_path):
         # Pad sequences
         print('Padding training sequences..')
         tr_data = DatasetCreator.pad_sequences(tr_data, axis=1, value=int(gpt2_tokenizer.pad_token_id),
-                                               maxlen=max_len_tr + 3)
+                                               maxlen=max_len_tr)
 
         # Pad sequences
         print('Padding testing sequences..')
         ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=int(gpt2_tokenizer.pad_token_id),
-                                               maxlen=max_len_ts + 3)
+                                               maxlen=max_len_ts)
 
         return tr_data, ts_data
 

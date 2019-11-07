@@ -16,15 +16,12 @@ from utilities.vqa.dataset import *
 from utilities.visualization.softmap import *
 import torch
 
-q_path_tr, a_path_tr, i_path_tr = get_data_paths(data_type='train')
-vqa_helper_tr = VQA(a_path_tr, q_path_tr)
-
-
+"""
 def gpt2_callback_fn(output, batch, iteration, epoch, task, tb):
     softmap_fig, words = softmap_visualize(
         softmaps=output[1][0],
         sequence=batch[1][0],
-        image=batch[2][0],
+        image=batch[2][0]
         show_plot=True
     )
 
@@ -34,24 +31,27 @@ def gpt2_callback_fn(output, batch, iteration, epoch, task, tb):
         global_step=epoch
     )
 
+"""
 
-def train():
+
+def train(checkpoint=None):
     loss = GPT2Loss(pad_token_id=gpt2_tokenizer.pad_token_id)
     model = VGGPT2()
 
     model_basepath = os.path.join('models', 'vggpt2')
 
-    model.load_state_dict(
-        torch.load(resources_path(model_basepath, 'checkpoints', 'B_40_LR_5e-05_CHKP_EPOCH_{}.pth'.format(7))))
+    if checkpoint is not None:
+        model.load_state_dict(
+            torch.load(resources_path(model_basepath, 'checkpoints', checkpoint)))
+
     model.set_train_on(True)
 
-    tr_dataset = VGGPT2Dataset(location=resources_path(model_basepath, 'data'),
-                               split='training')
+    tr_dataset = VGGPT2Dataset(location=resources_path(model_basepath, 'data'))
 
     learning_rate = 5e-5
-    epochs = 10
+    epochs = 20
 
-    tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'exp2_from7'))
+    tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'latest'))
 
     gpt2_trainer = Trainer(
         model=model,

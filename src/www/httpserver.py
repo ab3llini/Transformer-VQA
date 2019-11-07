@@ -14,7 +14,7 @@ import string
 import os
 
 app = Flask(__name__)
-model, device, ts_dataset = eval.init_model_data(epoch=12)
+model, device, ts_dataset = eval.init_model_data(checkpoint='best.pth')
 
 cache = {'image': None, 'softmaps': None}
 
@@ -30,7 +30,7 @@ def randomString(stringLength=10):
 def index(sample_id):
     random.seed()
     if sample_id == '' or sample_id is None:
-        sample_id = random.randint(0, 200000)
+        sample_id = random.randint(0, 100000)
     image = eval.get_sample_image(dataset=ts_dataset, index=sample_id)
 
     if cache['image'] is not None:
@@ -52,7 +52,7 @@ def switch_model(epoch):
     global device
     global ts_dataset
     try:
-        model, device, ts_dataset = eval.init_model_data(epoch=int(epoch))
+        model, device, ts_dataset = eval.init_model_data(checkpoint=int(epoch))
         return 'Switched model..'
     except Exception as e:
         return 'Invalid epoch number', epoch
