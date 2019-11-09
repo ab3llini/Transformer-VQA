@@ -44,7 +44,7 @@ def nltk_decode_bert_fn(pred):
         return ''
 
 
-def prepare_data(maxlen=50000, split='testing', skip=None):
+def prepare_data(split='testing', skip=None):
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
 
@@ -96,7 +96,7 @@ def prepare_data(maxlen=50000, split='testing', skip=None):
             os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'best.pth')))
 
     vggpt2_model.load_state_dict(
-        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'best.pth')))
+        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest' 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
     vggpt2_model.set_train_on(False)
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))
@@ -108,14 +108,6 @@ def prepare_data(maxlen=50000, split='testing', skip=None):
     print('Checkpoints loaded in RAM')
 
     data = {
-        'gpt2': {
-            'dataset': gpt2_dataset_ts,
-            'vocab_size': len(gpt2.gpt2_tokenizer),
-            'decode_fn': nltk_decode_gpt2_fn,
-            'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
-                          gpt2.gpt2_tokenizer.sep_token_id],
-            'model': gpt2_model
-        },
         'vggpt2': {
             'dataset': vggpt2_dataset_ts,
             'vocab_size': len(gpt2.gpt2_tokenizer),
@@ -123,6 +115,14 @@ def prepare_data(maxlen=50000, split='testing', skip=None):
             'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
                           gpt2.gpt2_tokenizer.sep_token_id],
             'model': vggpt2_model
+        },
+        'gpt2': {
+            'dataset': gpt2_dataset_ts,
+            'vocab_size': len(gpt2.gpt2_tokenizer),
+            'decode_fn': nltk_decode_gpt2_fn,
+            'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
+                          gpt2.gpt2_tokenizer.sep_token_id],
+            'model': gpt2_model
         },
         'captioning': {
             'dataset': captioning_dataset_ts,
@@ -325,12 +325,12 @@ if __name__ == '__main__':
     gen_preds = True
     gen_results = True
     gen_plots = True
-    prediction_dest = 'tmp_predictions'
-    result_dest = 'tmp_results'
+    prediction_dest = '100K_predictions'
+    result_dest = '100K_results'
 
     if gen_preds:
         generate_model_predictions(
-            data=prepare_data(maxlen=100),
+            data=prepare_data(),
             beam_size=1,
             limit=20,
             destination=prediction_dest
