@@ -50,24 +50,19 @@ def prepare_data(split='testing', skip=None):
 
     captioning_dataset_ts = captioning.CaptionDataset(location=os.path.join(baseline_path, 'captioning', 'data'),
                                                       split=split,
-                                                      evaluating=True,
-                                                      maxlen=maxlen
-                                                      )
+                                                      evaluating=True)
 
     gpt2_dataset_ts = gpt2.GPT2Dataset(location=os.path.join(baseline_path, 'answering', 'gpt2', 'data'),
                                        split=split,
-                                       evaluating=True,
-                                       maxlen=maxlen)
+                                       evaluating=True)
 
     bert_dataset_ts = bert.BertDataset(location=os.path.join(baseline_path, 'answering', 'bert', 'data'),
                                        split=split,
-                                       evaluating=True,
-                                       maxlen=maxlen)
+                                       evaluating=True)
 
     vggpt2_dataset_ts = vggpt2.VGGPT2Dataset(location=os.path.join(vggpt2_path, 'data'),
                                              split=split,
-                                             evaluating=True,
-                                             maxlen=maxlen)
+                                             evaluating=True)
 
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
