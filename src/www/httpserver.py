@@ -14,7 +14,7 @@ import string
 import os
 
 app = Flask(__name__)
-model, device, ts_dataset = eval.init_model_data(checkpoint='best.pth')
+model, device, ts_dataset = eval.init_model_data(checkpoint=os.path.join('latest', 'B_20_LR_5e-05_CHKP_EPOCH_17.pth'))
 
 cache = {'image': None, 'softmaps': None}
 

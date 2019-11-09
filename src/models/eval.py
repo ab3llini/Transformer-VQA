@@ -91,7 +91,7 @@ def prepare_data(split='testing', skip=None):
             os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'best.pth')))
 
     vggpt2_model.load_state_dict(
-        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest' 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
+        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
     vggpt2_model.set_train_on(False)
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))

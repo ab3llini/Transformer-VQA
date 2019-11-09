@@ -1,4 +1,4 @@
-from models.baseline.vqa import model as baseline
+from models.baseline.vqa.gpt2 import model as baseline
 from helpers.dataset import *
 from torch.utils.tensorboard import SummaryWriter
 
