@@ -162,7 +162,7 @@ class VQA:
         time_t = datetime.datetime.utcnow()
         anns = json.load(open(resFile))
         assert type(anns) == list, 'results is not an array of objects'
-        annsQuesIds = [ann['question_id'] for ann in anns]
+        annsQuesIds = [int(ann['question_id']) for ann in anns]
         a = set(annsQuesIds)
         b = set(self.getQuesIds())
         assert len(list(set(a).difference(b))) == 0, \
@@ -182,4 +182,4 @@ class VQA:
 
         res.dataset['annotations'] = anns
         res.createIndex()
-        return res
+        return res, annsQuesIds

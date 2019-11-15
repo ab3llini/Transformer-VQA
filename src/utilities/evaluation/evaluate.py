@@ -40,7 +40,7 @@ def compute_corpus_bleu(predictions, references, bleu=1):
     elif bleu == 2:
         weights = (0.5, 0.5, 0, 0)
     elif bleu == 3:
-        weights = (0.333, 0.333, 0.333, 0)
+        weights = (float(1) / float(3), float(1) / float(3), float(1) / float(3), 0)
     else:
         weights = (0.25, 0.25, 0.25, 0.25)
 
@@ -77,14 +77,13 @@ def generate_predictions(model, dataset: MultiPurposeDataset, decode_fn, vocab_s
     return predictions
 
 
-def compute_wm_distance(prediction, ground_truths):
-    global glove_embeddings
-    if glove_embeddings is None:
-        glove_embeddings = api.load("glove-wiki-gigaword-100")
+def compute_wm_distance(prediction, ground_truths, embeddings=None):
+    if embeddings is None:
+        embeddings = api.load("glove-wiki-gigaword-100")
 
     distance = None
     for truth in ground_truths:
-        d = glove_embeddings.wmdistance(prediction, truth)
+        d = embeddings.wmdistance(prediction, truth)
         if distance is None:
             distance = d
         else:
@@ -100,10 +99,10 @@ def compute_corpus_pred_len(predictions):
     return lengths
 
 
-def compute_corpus_wm_distance(predictions, answers_map):
+def compute_corpus_wm_distance(predictions, answers_map, embeddings=None):
     distances = {}
     for q_id, p in tqdm(predictions.items()):
-        d = compute_wm_distance(p, answers_map[str(q_id)])
+        d = compute_wm_distance(p, answers_map[str(q_id)], embeddings=embeddings)
         if str(q_id) in distances and d < distances[str(q_id)]:
             raise Exception('Duplicate key')
         else:

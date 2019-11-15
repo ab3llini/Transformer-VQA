@@ -1,3 +1,12 @@
+import sys
+import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
+sys.path.append(root_path)
+
+from utilities import paths
+
 import matplotlib.pyplot as plt
 from utilities.vqa.dataset import *
 from utilities.vqa.vqa import VQA
@@ -6,10 +15,10 @@ from utilities.vqa.evaluation import VQAEval
 
 # An example result json file has been provided in './Results' folder.
 
-def vqa_evaluation(questions, annotations, results, output_dir, result_ques_ids=None, precision=2):
+def vqa_evaluation(questions, annotations, results, output_dir, precision=2):
     # create vqa object and vqaRes object
     vqa = VQA(annotations, questions)
-    vqaRes = vqa.loadRes(results, questions)
+    vqaRes, result_ques_ids = vqa.loadRes(results, questions)
 
     # create vqaEval object by taking vqa and vqaRes
     vqaEval = VQAEval(vqa, vqaRes,
@@ -44,8 +53,31 @@ def vqa_evaluation(questions, annotations, results, output_dir, result_ques_ids=
     plt.ylabel('Accuracy', fontsize=10)
     plt.show()
 
-    # save evaluation results to ./Results folder
-    json.dump(vqaEval.accuracy, open(os.path.join(output_dir, 'accuracy'), 'w+'))
-    json.dump(vqaEval.evalQA, open(os.path.join(output_dir, 'eval_qa'), 'w+'))
-    json.dump(vqaEval.evalQuesType, open(os.path.join(output_dir, 'ques_type'), 'w+'))
-    json.dump(vqaEval.evalAnsType, open(os.path.join(output_dir, 'ans_type'), 'w+'))
+    # sav evaluation results to ./Results folder
+
+    json.dump(vqaEval.accuracy, open(os.path.join(output_dir, 'accuracy.json'), 'w+'))
+    json.dump(vqaEval.evalQA, open(os.path.join(output_dir, 'eval_qa.json'), 'w+'))
+    json.dump(vqaEval.evalQuesType, open(os.path.join(output_dir, 'ques_type.json'), 'w+'))
+    json.dump(vqaEval.evalAnsType, open(os.path.join(output_dir, 'ans_type.json'), 'w+'))
+
+
+if __name__ == '__main__':
+    # Convert our predictions into results for VQA
+    path = paths.resources_path('100K_predictions', 'beam_size_1', 'maxlen_20')
+    predictions = os.listdir(path)
+
+    for p in predictions:
+        model_pred = os.path.join(path, p)
+        with open(model_pred, 'r') as fp:
+            p_data = json.load(fp)
+
+        vqa_res = []
+
+        for q_id, ans in p_data.items():
+            vqa_res.append({
+                'question_id': int(q_id),
+                'answer': ' '.join(ans)
+            })
+
+        with open(os.path.join(path, 'vqa_ready_{}'.format(p)), 'w+') as fp:
+            json.dump(vqa_res, fp)

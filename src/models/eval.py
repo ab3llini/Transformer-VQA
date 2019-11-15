@@ -1,3 +1,4 @@
+import collections
 import sys
 import os
 
@@ -7,9 +8,11 @@ sys.path.append(root_path)
 
 from datasets import captioning, gpt2, bert, vggpt2
 from utilities.evaluation import sanity
+from utilities.evaluation.evaluate_vqa import vqa_evaluation
+from utilities.vqa.dataset import get_data_paths
 from utilities import paths
 import torch
-
+import numpy as np
 import models.baseline.captioning.train as modelling_caption
 import models.vggpt2.model as modelling_vggpt2
 
@@ -24,8 +27,11 @@ import pandas as pd
 import json
 import math
 from multiprocessing import Process
+import gensim.downloader as api
+
 
 evaluation_cache = json.load(open(paths.data_path('cache', 'evaluation.json'), 'r'))
+question_path, annotation_path, _ = get_data_paths(data_type='test')
 
 
 def nltk_decode_gpt2_fn(pred):
@@ -171,17 +177,22 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
 
 
 def compute_single_bleu(bleu, name, predictions, references, destination):
-    print('\t\t({}) Computing bleu{} score.'.format(name, bleu))
-    score = compute_corpus_bleu(list(predictions.values()), references, bleu=bleu)
-    with open(
-            paths.resources_path(destination, 'bleu{}'.format(bleu), '{}.json'.format(name)), 'w+'
-    ) as fp:
-        json.dump(score, fp)
+    bleu_path = paths.resources_path(destination, 'bleu{}'.format(bleu), '{}.json'.format(name))
+    if os.path.exists(bleu_path):
+        print('\t\t({}) Skipping bleu{} score.'.format(name, bleu))
+    else:
+        print('\t\t({}) Computing bleu{} score.'.format(name, bleu))
+        score = compute_corpus_bleu(list(predictions.values()), references, bleu=bleu)
+        with open(bleu_path
+                , 'w+'
+                  ) as fp:
+            json.dump(score, fp)
 
 
-def evaluate_model(name, answer_map, source, destination):
+def evaluate_model(name, answer_map, source, destination, wm_embeddings=None):
     processes = {}
     print('\tEvaluating model {}'.format(name))
+
     with open(
             paths.resources_path(source, 'beam_size_1', 'maxlen_20', '{}.json'.format(name)),
             'r'
@@ -197,40 +208,58 @@ def evaluate_model(name, answer_map, source, destination):
         print('\t\t({}) process {} started with target bleu{}'.format(name, len(processes), bleu))
         processes[bleu] = process
 
-    print('\t\t({}) Computing word mover distance.'.format(name))
     # Word mover distances
+    wm_dest = paths.resources_path(destination, 'word_mover', '{}.json'.format(name))
+    if os.path.exists(wm_dest):
+        print('\t\t({}) Skipping word mover distance.'.format(name))
+    else:
+        print('\t\t({}) Computing word mover distance.'.format(name))
+        distances = compute_corpus_wm_distance(predictions, answer_map, embeddings=wm_embeddings)
+        with open(wm_dest, 'w+') as fp:
+            json.dump(distances, fp)
 
-    distances = compute_corpus_wm_distance(predictions, answer_map)
-
-    with open(paths.resources_path(destination, 'word_mover', '{}.json'.format(name)), 'w+') as fp:
-        json.dump(distances, fp)
-
-    print('\t\t({}) Computing lengths.'.format(name))
     # Lengths
-    lengths = compute_corpus_pred_len(predictions)
-
-    with open(paths.resources_path(destination, 'length', '{}.json'.format(name)), 'w+') as fp:
-        json.dump(lengths, fp)
+    lengths_path = paths.resources_path(destination, 'length', '{}.json'.format(name))
+    if os.path.exists(lengths_path):
+        print('\t\t({}) Skipping lengths.'.format(name))
+    else:
+        print('\t\t({}) Computing lengths.'.format(name))
+        lengths = compute_corpus_pred_len(predictions)
+        with open(lengths_path, 'w+') as fp:
+            json.dump(lengths, fp)
 
     for bleu, process in processes.items():
         process.join()
         print('\t\t({}) process with target bleu{} has completed'.format(name, bleu))
 
+    print('\t\t({}) Evaluating on VQA script.'.format(name))
+
+    vqa_path = paths.resources_path(destination, 'vqa', '{}'.format(name), 'accuracy.json')
+
+    if os.path.exists(vqa_path):
+        print('\t\t({}) Skipping accuracies.'.format(name))
+    else:
+        print('\t\t({}) Computing accuracies.'.format(name))
+        vqa_evaluation(question_path, annotation_path,
+                       paths.resources_path(source, 'beam_size_1', 'maxlen_20', 'vqa_ready_{}.json'.format(name)),
+                       paths.resources_path(destination, 'vqa', '{}'.format(name)))
+
     print('\t\t({}) All done.'.format(name))
 
 
-def evaluate(model_names, source='predictions', destination='results'):
+def evaluate(model_names, source='predictions', destination='results', wm_embeddings=None):
     processes = {}
     with open(paths.data_path('cache', 'evaluation.json'), 'r') as fp:
         answer_map = json.load(fp)
     for name in model_names:
-        process = Process(target=evaluate_model, args=(name, answer_map, source, destination))
+        process = Process(target=evaluate_model, args=(name, answer_map, source, destination, wm_embeddings))
         process.start()
         print('process {} started with target {}'.format(len(processes), name))
         processes[name] = process
     for model, process in processes.items():
         process.join()
         print('process for model {} has completed'.format(model))
+
     print('All done')
 
 
@@ -238,6 +267,7 @@ def visualize(model_names, source='results'):
     bleu_scores = {}
     wm_scores = {}
     length_scores = {}
+    accuracies = {}
 
     for bleu in [1, 2, 3, 4]:
         bleu_scores['bleu{}'.format(bleu)] = {}
@@ -249,76 +279,181 @@ def visualize(model_names, source='results'):
             wm_scores[name] = json.load(fp)
         with open(paths.resources_path(source, 'length', '{}.json'.format(name)), 'r') as fp:
             length_scores[name] = json.load(fp)
+        with open(paths.resources_path(source, 'vqa', '{}'.format(name), 'accuracy.json'), 'r') as fp:
+            accuracies[name] = json.load(fp)
 
     # Visualize BLEU scores
+    bleu_plot = {
+        'Model': [],
+        'Smoothing': [],
+        'Value': [],
+        'Metric': []
+    }
     for bleu_n, models in bleu_scores.items():
         plot_data = {
-            'model': [],
-            'smoothing_fn': [],
+            'Model': [],
+            'Smoothing': [],
             'bleu{}'.format(bleu_n): []
         }
-        print('{} scores'.format(bleu_n))
         for model, scores in models.items():
-            print('Model: {}'.format(model))
             for smoothing_fn, value in scores.items():
-                if smoothing_fn in ['NIST-geom', 'avg']:
-                    plot_data['model'].append(model)
-                    plot_data['smoothing_fn'].append(smoothing_fn)
+                if smoothing_fn not in ['no-smoothing']:
+                    plot_data['Model'].append(model)
+                    plot_data['Smoothing'].append(smoothing_fn)
                     plot_data['bleu{}'.format(bleu_n)].append(value)
-                print('Smoothing function: {} | Value = {}'.format(smoothing_fn, value))
-        plot = sns.barplot(x='model', y='bleu{}'.format(bleu_n), hue='smoothing_fn', data=plot_data)
+
+        """
+        plot = sns.barplot(x='Model', y='bleu{}'.format(bleu_n), hue='Smoothing', data=plot_data)
         plot.set_title('{}'.format(bleu_n))
         plot.figure.savefig(paths.resources_path(source, 'plots', '{}.png'.format(bleu_n)))
         plt.show()
+        """
+        bleu_plot['Model'].extend(plot_data['Model'])
+        bleu_plot['Smoothing'].extend(plot_data['Smoothing'])
+        bleu_plot['Value'].extend(plot_data['bleu{}'.format(bleu_n)])
+        bleu_plot['Metric'].extend(['{}'.format(bleu_n)] * len(plot_data['Model']))
+
+    dff = pd.DataFrame(bleu_plot)
+
+    g = sns.FacetGrid(dff, col="Metric", row='Smoothing', hue='Smoothing', margin_titles=True, palette='GnBu_d')
+    g.map(sns.barplot, 'Model', 'Value')
+    for ax in g.axes.flat:
+        for label in ax.get_xticklabels():
+            label.set_rotation(90)
+
+    g.fig.tight_layout()
+    g.savefig(paths.resources_path(source, 'plots', 'bleu.png'), dpi=300)
+    plt.show()
 
     # Visualize VM scores
     wm_counts_plot_data = {
-        'model': [],
-        'wm_distances': []
+        'Model': [],
+        'N_WM': []
     }
+
+    wm_plot_data = {
+        'Model': [],
+        'Word Mover Distance': []
+    }
+
     print('WM scores')
-    for model, scores in wm_scores.items():
+    for i, (model, scores) in enumerate(wm_scores.items()):
         print('Model: {}'.format(model))
         values = list(scores.values())
         df = pd.DataFrame(values, columns=['wm'])
         with pd.option_context('mode.use_inf_as_na', True):
             df = df.dropna(subset=['wm'], how='all')
-        print(df.describe())
-        wm_counts_plot_data['model'].append(model)
-        wm_counts_plot_data['wm_distances'].append(df.shape[0])
-        plot = sns.distplot(df, kde=False)
-        plot.set_title('{} - Word Mover Distance Distribution'.format(model))
-        plot.set(xlabel='WM value', ylabel='Number of samples')
-        plot.figure.savefig(paths.resources_path(source, 'plots', 'wm_{}.png'.format(model)))
-        plt.show()
+        wm_counts_plot_data['Model'].append(model)
+        wm_counts_plot_data['N_WM'].append(df.shape[0])
+        wm_plot_data['Model'].extend([model] * df['wm'].shape[0])
+        wm_plot_data['Word Mover Distance'].extend(df['wm'].tolist())
+
+    dff = pd.DataFrame(wm_plot_data)
+
+    g = sns.FacetGrid(dff, col="Model", hue='Model', col_wrap=3, sharey=False, sharex=False)
+    g.map(sns.distplot, 'Word Mover Distance', kde=False)
+    g.fig.tight_layout()
+    g.savefig(paths.resources_path(source, 'plots', 'word_mover.png'), dpi=300)
+    plt.show()
 
     # Plot number of comparable WM distances
-    plot = sns.barplot(x='model', y='wm_distances', data=wm_counts_plot_data)
+    plot = sns.barplot(x='Model', y='N_WM', data=wm_counts_plot_data)
     plot.set_title('Number of comparable WM Distances')
     plot.figure.savefig(paths.resources_path(source, 'plots', 'wm_counts.png'))
     plt.show()
 
-    df = None
+    df = {
+        'Model': [],
+        'Length': []
+    }
     # Visualize Length scores
     print('Length scores')
     for model, scores in length_scores.items():
-        print('Model: {}'.format(model))
         values = list(scores.values())
-        df = pd.DataFrame(values, columns=['length'])
-        print(df.describe())
-        plot = sns.distplot(df, kde=False)
-        plot = sns.distplot(df)
-        plot.set_title('{} - Answer Length Distribution'.format(model))
-        plot.figure.savefig(paths.resources_path(source, 'plots', 'length_{}.png'.format(model)))
-        plt.show()
+        df['Model'].extend([model] * len(values))
+        df['Length'].extend(values)
+
+    g = sns.FacetGrid(pd.DataFrame(df), col="Model", hue='Model', col_wrap=3, sharey=False, sharex=False)
+    g.map(sns.distplot, 'Length', kde=False, bins=10)
+    g.fig.tight_layout()
+    g.savefig(paths.resources_path(source, 'plots', 'lengths.png'))
+    plt.show()
+
+    accuracy_df_common = {
+        'Model': [],
+        'Type': [],
+        'Accuracy': [],
+    }
+
+    # Accuracies
+    for __type in ['overall', 'other', 'yes/no', 'number']:
+        for model, scores in accuracies.items():
+            if __type == 'overall':
+                v = float(scores['overall']) / 100.0
+            else:
+                v = float(scores['perAnswerType'][__type]) / 100.0
+
+            accuracy_df_common['Model'].append(model)
+            accuracy_df_common['Type'].append(__type)
+            accuracy_df_common['Accuracy'].append(v)
+
+    g = sns.FacetGrid(pd.DataFrame(accuracy_df_common), col='Type', sharey=True)
+    g.map(sns.barplot, 'Model', 'Accuracy')
+    g.set(ylim=(0, 1), yticks=np.arange(0, 1, 0.2))
+
+    for ax in g.axes.flat:
+        for label in ax.get_xticklabels():
+            label.set_rotation(90)
+
+    for ax in g.axes.ravel():
+        for p in ax.patches:
+            ax.annotate("%.2f" % p.get_height(), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center',
+                        va='center', xytext=(0, 8), textcoords='offset points')
+
+    g.fig.tight_layout()
+
+    g.savefig(paths.resources_path(source, 'plots', 'common_accuracy.png'), dpi=300)
+    plt.show()
+
+    best_k = 10
+    accuracy_df_best = {
+        'Model': [],
+        'Question type': [],
+        'Accuracy': [],
+        'TopK': []
+    }
+    for i in range(2):
+        for model, scores in accuracies.items():
+            if model in ['bert', 'captioning']:
+                continue
+            per_question_type = scores['perQuestionType']
+
+            ordered_pqt_scored = sorted(per_question_type.items(), key=lambda kv: kv[1], reverse=True)
+            ordered_pqt_scored = collections.OrderedDict(ordered_pqt_scored)
+
+            top_k_keys = list(ordered_pqt_scored.keys())[best_k * i:best_k * i + best_k]
+            top_k_values = [float(v) / 100.0 for k, v in ordered_pqt_scored.items() if k in top_k_keys]
+
+            accuracy_df_best['Model'].extend([model] * best_k)
+            accuracy_df_best['TopK'].extend(['1-10' if i == 0 else '11-20'] * best_k)
+            accuracy_df_best['Question type'].extend(top_k_keys)
+            accuracy_df_best['Accuracy'].extend(top_k_values)
+
+    g = sns.FacetGrid(pd.DataFrame(accuracy_df_best), row="Model", col='TopK', hue='Model', sharey=False, height=3,
+                      aspect=1.5)
+    g.map(sns.barplot, 'Accuracy', 'Question type')
+
+    g.fig.tight_layout()
+    g.savefig(paths.resources_path(source, 'plots', 'best_accuracy.png'), dpi=300)
+    plt.show()
 
 
 if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = True
-    gen_results = True
+    gen_preds = False
+    gen_results = False
     gen_plots = True
     prediction_dest = '100K_predictions'
     result_dest = '100K_results'
@@ -331,13 +466,16 @@ if __name__ == '__main__':
             destination=prediction_dest
         )
     if gen_results:
+        print('Loading glove embeddings..')
+        embs = api.load("glove-wiki-gigaword-100")
         evaluate(
-            model_names=['captioning', 'bert', 'gpt2', 'vggpt2'],
+            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
             source=prediction_dest,
-            destination=result_dest
+            destination=result_dest,
+            wm_embeddings=embs
         )
     if gen_plots:
         visualize(
-            model_names=['captioning', 'bert', 'gpt2', 'vggpt2'],
+            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
             source=result_dest
         )

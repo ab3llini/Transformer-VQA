@@ -141,6 +141,7 @@ class VQAEval:
         self.setAccuracy(accQA, accQuesType, accAnsType)
         print("Done computing accuracy")
 
+
     def processPunctuation(self, inText):
         outText = inText
         for p in self.punct:
