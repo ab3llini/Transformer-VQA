@@ -40,9 +40,11 @@ def get_image_path(image_rel_path):
     return os.path.join(data_path('vqa', 'Images'), image_rel_path)
 
 
-def resize_image(image, size=224):
+def resize_image(image, size=224, central_fraction=1.0):
     """
     Resize, normalizes and transform to tensor a PIL image fot VGG compatibility
+    :param size:
+    :param central_fraction:
     :param image: the PIL image to transform
     :return: a tensor containing the transformed image (3x224x224)
     """
@@ -50,7 +52,8 @@ def resize_image(image, size=224):
         raise Exception('Grayscale detection')
 
     transform = transforms.Compose([
-        transforms.RandomResizedCrop(size)
+        transforms.Scale(int(size / central_fraction)),
+        transforms.CenterCrop(size)
     ])
 
     return transform(image)

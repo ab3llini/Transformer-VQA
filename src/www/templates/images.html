@@ -1,0 +1,16 @@
+<div class="row mt-4">
+    {% for col in range(cols) %}
+        <div class="col">
+            {% for row in range(rows) %}
+                <div class="row">
+                    <div class="col mb-4">
+                        <a href="interact/{{ images[row * cols + col] }}">
+                            <img src="{{ url_for('static', filename=images[row * cols + col]) }}"
+                                 class="img-fluid rounded shadow-lg">
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</div>

@@ -1,10 +1,18 @@
+import sys
+import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir, os.pardir))
+sys.path.append(root_path)
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.utils.rnn import pack_padded_sequence
 
-import config
+import models.baseline.vqa.cyanogenoid.config as config
 
 
 class Net(nn.Module):

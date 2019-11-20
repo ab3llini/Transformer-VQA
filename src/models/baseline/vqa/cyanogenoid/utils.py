@@ -51,7 +51,8 @@ def batch_accuracy(predicted, true):
 def path_for(train=False, val=False, test=False, question=False, answer=False):
     assert train + val + test == 1
     assert question + answer == 1
-    assert not (test and answer), 'loading answers from test split not supported'  # if you want to eval on test, you need to implement loading of a VQA Dataset without given answers yourself
+    assert not (
+            test and answer), 'loading answers from test split not supported'  # if you want to eval on test, you need to implement loading of a VQA Dataset without given answers yourself
     if train:
         split = 'train2014'
     elif val:
@@ -77,6 +78,7 @@ def path_for(train=False, val=False, test=False, question=False, answer=False):
 
 class Tracker:
     """ Keep track of results over time, while having access to monitors to display information about them. """
+
     def __init__(self):
         self.data = {}
 
@@ -92,9 +94,9 @@ class Tracker:
         # turn list storages into regular lists
         return {k: list(map(list, v)) for k, v in self.data.items()}
 
-
     class ListStorage:
         """ Storage of data points that updates the given monitors """
+
         def __init__(self, monitors=[]):
             self.data = []
             self.monitors = monitors
@@ -143,11 +145,33 @@ class Tracker:
                 self.value = m * self.value + (1 - m) * value
 
 
-def get_transform(target_size, central_fraction=1.0):
+def get_transform(target_size, central_fraction=1.0, resize=True):
+    if not resize:
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
+    else:
+        return transforms.Compose([
+            transforms.Scale(int(target_size / central_fraction)),
+            transforms.CenterCrop(target_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
+
+
+def resize_image(image, target_size, central_fraction=1.0):
     return transforms.Compose([
         transforms.Scale(int(target_size / central_fraction)),
         transforms.CenterCrop(target_size),
+    ])(image)
+
+
+def normalized_tensor_image(image):
+    return transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225]),
-    ])
+    ])(image)

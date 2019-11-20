@@ -88,41 +88,6 @@ def decode_fn(pred):
         return ''
 
 
-def evaluate_bleu_score():
-    results = {
-        'model': [],
-        'beam_size': [],
-        'BLEU1': []
-    }
-
-    sns.set()
-    for k in [1]:
-        bleu, _, _ = compute_corpus_bleu(
-            model=model,
-            dataset=dataset,
-            decode_fn=decode_fn,
-            vocab_size=len(gpt2_tokenizer),
-            beam_size=k,
-            stop_word=[gpt2_tokenizer.eos_token_id, gpt2_tokenizer.sep_token_id, gpt2_tokenizer.bos_token_id],
-            max_len=10,
-            device=device
-        )
-        results['beam_size'].append(k)
-        results['model'].append('VGGPT2')
-        results['BLEU1'].append(bleu)
-
-    results = pd.DataFrame(results)
-    sns.set_style("darkgrid")
-    plot = sns.lineplot(x="beam_size", dashes=False, y="BLEU1", hue="model", style="model", markers=["o"],
-                        data=results)
-    plt.show()
-
-    # Save files
-    SAVE_DIR = paths.resources_path('results', 'vggpt2')
-    plot.figure.savefig(os.path.join(SAVE_DIR, 'bleu1.png'))
-    results.to_csv(os.path.join(SAVE_DIR, 'results.csv'))
-
-
 def init_model_data(checkpoint):
     # Set the current device
     device = 'cuda'

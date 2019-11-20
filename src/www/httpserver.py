@@ -5,90 +5,117 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir))
 sys.path.append(root_path)
 
-from flask import Flask, render_template, request, url_for
+from flask import Flask, render_template, request, redirect
+import models.vggpt2.interactive as vggpt2_it
+import models.baseline.vqa.cyanogenoid.interactive as vqa_it
+import www.utils.image as utils
 import shutil
-from models.vggpt2 import eval
-import random
-import matplotlib.pyplot as plt
-import string
-import os
+import hashlib
 
 app = Flask(__name__)
-model, device, ts_dataset = eval.init_model_data(checkpoint=os.path.join('latest', 'B_20_LR_5e-05_CHKP_EPOCH_17.pth'))
+image_folder = 'static/images/'
 
-cache = {'image': None, 'softmaps': None}
-
-
-def randomString(stringLength=10):
-    random.seed()
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(stringLength))
+cols = 4
+rows = 4
 
 
-# Serve main index
+def get_md5_digest(text):
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
 
-def index(sample_id):
-    random.seed()
-    if sample_id == '' or sample_id is None:
-        sample_id = random.randint(0, 100000)
-    image = eval.get_sample_image(dataset=ts_dataset, index=sample_id)
 
-    if cache['image'] is not None:
-        os.remove('static/{}'.format(cache['image']))
+def init():
+    prev_users = os.listdir(image_folder)
+    for user in prev_users:
+        shutil.rmtree(os.path.join(image_folder, user))
 
-    cache['image'] = randomString(10) + '.png'
-    image.save("static/{}".format(cache['image']), "PNG")
-    return render_template('index.html', sample_id=sample_id, image_href=url_for('static', filename=cache['image']))
+
+def get_session():
+    return get_md5_digest(request.remote_addr)
+
+
+def get_session_images():
+    utils.delete_session_images(get_session())
+    images = utils.k_rand_images(k=cols * rows)
+    return utils.cache_session_images(images, get_session())
+
+
+def get_answers_and_images(question, image_path):
+    pil_image = utils.load_image(image_path)
+    output = {}
+    for model, it in zip(['VQABaseline', 'VGGPT-2'], [vqa_it, vggpt2_it]):
+        answer, images = it.answer(question, pil_image)
+        image_paths = []
+        for i, image in enumerate(images):
+            image_paths.extend(
+                utils.cache_session_images({'{}.png'.format(get_md5_digest(model + str(i) + image_path)): image},
+                                           get_session()))
+            output[model] = {'answer': answer, 'images': image_paths}
+
+    return output
 
 
 @app.route('/')
-def index_without_sample():
-    return index(sample_id=None)
+def index():
+    images = get_session_images()
+    return render_template('index.html',
+                           images=render_template('images.html', images=images, rows=rows, cols=cols))
 
 
-@app.route('/switch/<epoch>')
-def switch_model(epoch):
-    global model
-    global device
-    global ts_dataset
-    try:
-        model, device, ts_dataset = eval.init_model_data(checkpoint=int(epoch))
-        return 'Switched model..'
-    except Exception as e:
-        return 'Invalid epoch number', epoch
+@app.route('/upload/', methods=['post'])
+def upload():
+    session_md5 = get_session()
+    endpoint = 'static'
+    img_dir = os.path.join('images', session_md5)
+    destination = os.path.join(img_dir, 'upload.png')
+    files = request.files.getlist('image')
+    if len(files) > 0:
+        file = files[0]
+        if not os.path.isdir(os.path.join(endpoint, img_dir)):
+            os.mkdir(os.path.join(endpoint, img_dir))
+        file.save(os.path.join(endpoint, destination))
+        return redirect(os.path.join('/interact/', destination))
+    else:
+        return redirect('/')
 
 
-@app.route('/<sample_id>')
-def index_with_sample(sample_id):
-    try:
-        return index(sample_id=int(sample_id))
-    except Exception as e:
-        print('Invalid sample id', sample_id)
+@app.route('/interact/<dir>/<session>/<image>', methods=['GET', 'POST'])
+def select_image(dir, session, image):
+    curr_session = get_session()
+    rel_path = os.path.join(dir, curr_session, image)
+    path = os.path.join('static', rel_path)
+    if not os.path.exists(path):
+        # Allow other to share links
+        # Load
+        new = utils.load_relative_image(image)
+        # Cache
+        _ = utils.cache_session_images(new, curr_session)
+
+    if session != curr_session:
+        return redirect('/interact/' + rel_path)
+    else:
+        # Try to fetch a question
+        question = request.form.get('question')
+        print('Question =', question)
+        answers = None
+        if question is not None:
+            print('Computing outputs..')
+            answers = get_answers_and_images(question, path)
+            print('Outputs:', answers)
+        return interact(rel_path, answers)
 
 
-@app.route('/execute')
-def execute():
-    question = request.args.get('question')
-    sample_id = int(request.args.get('sample_id'))
-    beam_size = int(request.args.get('beam_size'))
-    maxlen = int(request.args.get('maxlen'))
-
-    image, fig, words, alphas, sequence = eval.interactive_evaluation(question, model, device, ts_dataset, sample_id,
-                                                                      beam_size, maxlen)
-    if cache['softmaps'] is not None:
-        os.remove('static/{}'.format(cache['softmaps']))
-    cache['softmaps'] = randomString(11) + '.png'
-    fig.savefig("static/{}".format(cache['softmaps']), dpi=150)
-    return render_template('execute.html',
-                           sample_id=sample_id,
-                           image_href=url_for('static', filename=cache['image']),
-                           output_href=url_for('static', filename=cache['softmaps']),
-                           beam_size=beam_size,
-                           maxlen=maxlen,
-                           output=str(sequence)
-                           )
+@app.route('/interact/', methods=['GET', 'POST'])
+def interact(image=None, answers=None):
+    if image is not None:
+        if answers is not None:
+            return render_template('interact.html', target=image, answers=answers)
+        else:
+            return render_template('interact.html', target=image)
+    else:
+        return redirect('/')
 
 
 if __name__ == '__main__':
+    init()
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.run(host='0.0.0.0', port=6006)

@@ -6,6 +6,7 @@ import matplotlib.cm as cm
 import skimage.transform
 from models.vggpt2.model import gpt2_tokenizer
 from utilities.vqa.dataset import *
+import io
 
 
 def softmap_visualize(softmaps, sequence, image, show_plot=True):
@@ -19,7 +20,7 @@ def softmap_visualize(softmaps, sequence, image, show_plot=True):
 
     softmaps = softmaps.detach().to('cpu')
 
-    image = image.resize([7 * 32, 7 * 32], Image.LANCZOS)
+    # image = image.resize([7 * 32, 7 * 32], Image.LANCZOS)
     words_tokenized = sequence.tolist()
     words = [gpt2_tokenizer.convert_ids_to_tokens(w) for w in words_tokenized]
     alphas = []
@@ -54,6 +55,11 @@ def softmap_visualize(softmaps, sequence, image, show_plot=True):
     if show_plot:
         plt.show()
 
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', dpi=300)
+    buf.seek(0)
+    im = Image.open(buf)
+    plt.clf()
     # Generate alphas images
 
-    return image, fig, words, alphas, gpt2_tokenizer.decode(words_tokenized)
+    return im

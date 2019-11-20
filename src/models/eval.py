@@ -282,6 +282,29 @@ def visualize(model_names, source='results'):
         with open(paths.resources_path(source, 'vqa', '{}'.format(name), 'accuracy.json'), 'r') as fp:
             accuracies[name] = json.load(fp)
 
+    """ INIT LATEX OUT """
+    smooths = []
+    for bleu_n, models in bleu_scores.items():
+        for model, scores in models.items():
+            for smoothing_fn, value in scores.items():
+                if smoothing_fn not in smooths:
+                    smooths.append(smoothing_fn)
+
+    for fn in smooths:
+        with open(paths.resources_path(source, 'latex', 'bleu_template.tex'), 'r') as fp:
+            template = fp.read()
+            template = template.replace('#SMOOTH', fn)
+        for bleu_n, models in bleu_scores.items():
+            for model, scores in models.items():
+                # print('#{}{}'.format(model, bleu_n[-1]), '====>', '{:.3f}'.format(scores[fn]))
+                template = template.replace('#{}{}'.format(model, bleu_n[-1]), '{:.3f}'.format(scores[fn]))
+        with open(paths.resources_path(source, 'latex', 'bleu_{}_latex.tex'.format(fn)), 'w+') as fp:
+            fp.write(template)
+
+    """ END LATEX OUT """
+
+    return
+
     # Visualize BLEU scores
     bleu_plot = {
         'Model': [],
@@ -455,8 +478,8 @@ if __name__ == '__main__':
     gen_preds = False
     gen_results = False
     gen_plots = True
-    prediction_dest = '100K_predictions'
-    result_dest = '100K_results'
+    prediction_dest = 'predictions'
+    result_dest = 'results'
 
     if gen_preds:
         generate_model_predictions(
@@ -479,3 +502,4 @@ if __name__ == '__main__':
             model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
             source=result_dest
         )
+

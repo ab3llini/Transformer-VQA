@@ -2,68 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>VQA Frontend</title>
+    <title>VQA Web Frontend - Home</title>
     <link href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
 </head>
-<body>
-<div class="container mt-5">
-    <div class="jumbotron">
-        <div class="row">
-            <div class="col">
-                <h4>VGGPT2 Web Demo</h4>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col">
-                <h4><span class="badge badge-info">Sample <span id="sample_id">{{ sample_id }}</span></span></h4>
-            </div>
-        </div>
-        <div class="row mt-2">
-            <div class="col">
-                <img class="rounded" width="400" height="400" src="{{ image_href }}">
-            </div>
-        </div>
-        <div class="row mt-4">
-            <div class="col">
-                <div class="input-group">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text">Question</span>
-                    </div>
-                    <input class="form-control" type="text" id="question" placeholder="Enter your question here">
-                    <div class="input-group-append">
-                        <button class="btn btn-outline-primary" id="submit">Execute</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-4">
-            <div class="col">
-                <div class="input-group">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text">Beam size</span>
-                    </div>
-                    <input class="form-control" type="text" id="beam_size" placeholder="Beam size" value="1">
-                </div>
-            </div>
-            <div class="col">
-                <div class="input-group">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text">Max length</span>
-                    </div>
-                    <input class="form-control" type="text" id="maxlen" placeholder="Max length" value="20">
-                </div>
-            </div>
+<body class="bg-dark">
+<div class="container">
+    <div class="row mt-5">
+        <div class="col text-center">
+            <h2 class="text-white">Towards Open-Ended VQA Models using Transformers</h2>
         </div>
     </div>
-</div>
-</div>
+    <div class="row mt-5">
+        <div class="col">
+            <p class="text-white">
+                Select one of the images below or upload one to begin.
+            </p>
+        </div>
+    </div>
 
+    <form action="/upload/" method="post" enctype="multipart/form-data">
+        <div class="row">
+            <div class="col">
+                <div class="custom-file input-group">
+                    <input type="file" class="custom-file-input" name="image" id="image">
+                    <label class="custom-file-label" for="customFile">Upload an image</label>
+                </div>
+            </div>
+            <div class="col-auto">
+                <input type="submit" class="btn btn-primary" value="Upload">
+            </div>
+        </div>
+    </form>
 
+    {{ images | safe }}
+</div>
 <script src="https://code.jquery.com/jquery-latest.min.js"></script>
 <script>
-    $('#submit').click(() => {
-        window.location = 'execute?question=' + $('#question').val() + '&sample_id=' + $('#sample_id').html() + '&beam_size=' + $('#beam_size').val() + '&maxlen=' + $('#maxlen').val()
-    })
 </script>
 <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.min.js') }}"></script>
 </body>

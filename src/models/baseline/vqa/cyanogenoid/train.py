@@ -96,7 +96,7 @@ def run(net, loader, optimizer, tracker, train=False, prefix='', epoch=0):
 
 def main():
 
-    """
+
     sd = torch.load('logs/2017-08-04_00.55.19.pth')
 
     target_name = os.path.join('logs', 'results.pth')
@@ -114,7 +114,7 @@ def main():
 
     ans_map = {v: k for k, v in sd['vocab']['answer'].items()}
 
-    with open(paths.resources_path('100K_predictions/beam_size_1/maxlen_20/gpt2.json'), 'r') as fp:
+    with open(paths.resources_path('predictions/beam_size_1/maxlen_20/gpt2.json'), 'r') as fp:
         preds = json.load(fp)
         good_indices = [int(k) for k in list(preds.keys())]
 
@@ -138,7 +138,7 @@ def main():
     tracker = utils.Tracker()
     val_loader = data.get_loader(val=True)
     r = run(net, val_loader, optimizer, tracker, train=False, prefix='val', epoch=0)
-
+    """
 
     dt = {
         'ans': []
@@ -154,7 +154,7 @@ def main():
     with open('tmp.json', 'w+') as fp:
         json.dump(dt, fp)
 
-    """
+
 
     sd = torch.load('logs/2017-08-04_00.55.19.pth')
 
@@ -195,7 +195,7 @@ def main():
 
     with open(paths.resources_path('100K_predictions/beam_size_1/maxlen_20/vqa_baseline.json'), 'w+') as fp:
         json.dump(answers, fp)
-
+    """
 
 if __name__ == '__main__':
     main()
