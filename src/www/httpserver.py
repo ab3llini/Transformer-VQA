@@ -16,7 +16,7 @@ app = Flask(__name__)
 image_folder = 'static/images/'
 
 cols = 4
-rows = 4
+rows = 6
 
 
 def get_md5_digest(text):
