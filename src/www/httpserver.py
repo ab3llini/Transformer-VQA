@@ -47,8 +47,9 @@ def get_answers_and_images(question, image_path):
         image_paths = []
         for i, image in enumerate(images):
             image_paths.extend(
-                utils.cache_session_images({'{}.png'.format(get_md5_digest(model + str(i) + image_path)): image},
-                                           get_session()))
+                utils.cache_session_images(
+                    {'{}.png'.format(get_md5_digest(model + str(i) + question + image_path)): image},
+                    get_session()))
             output[model] = {'answer': answer, 'images': image_paths}
 
     return output
@@ -101,14 +102,14 @@ def select_image(dir, session, image):
             print('Computing outputs..')
             answers = get_answers_and_images(question, path)
             print('Outputs:', answers)
-        return interact(rel_path, answers)
+        return interact(rel_path, question, answers)
 
 
 @app.route('/interact/', methods=['GET', 'POST'])
-def interact(image=None, answers=None):
+def interact(image=None, question=None, answers=None):
     if image is not None:
-        if answers is not None:
-            return render_template('interact.html', target=image, answers=answers)
+        if question is not None and answers is not None:
+            return render_template('interact.html', target=image, question=question, answers=answers)
         else:
             return render_template('interact.html', target=image)
     else:

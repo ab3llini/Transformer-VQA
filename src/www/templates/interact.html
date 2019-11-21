@@ -22,7 +22,11 @@
         <div class="col-6">
             <form method="POST" action="/interact/{{ target }}">
                 <div class="input-group">
+                    {% if question is defined %}
+                    <input type="text" class="form-control" name="question" placeholder="{{ question }}">
+                    {% else %}
                     <input type="text" class="form-control" name="question" placeholder="Ask me something..">
+                    {% endif %}
                     <div class="input-group-append">
                         <input type="submit" class="btn btn-primary" value="Go">
                     </div>
@@ -34,42 +38,43 @@
         </div>
     </div>
     {% if answers is defined %}
-        {% for model, outputs in answers.items() %}
-            <div class="row mt-3">
-                <div class="col">
-                    <div class="card">
-                        <div class="card-header">
-                            {{ model }}
+    {% for model, outputs in answers.items() %}
+    <div class="row mt-3">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    {{ model }}
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-2">
+                            <img src="{{ url_for('static', filename=outputs['images'][0]) }}"
+                                 class="img-fluid rounded shadow-lg">
                         </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-2">
-                                    <img src="{{ url_for('static', filename=outputs['images'][0]) }}"
-                                         class="img-fluid rounded shadow-lg">
-                                </div>
+                        <div class="col">
+                            <div class="row no-gutters">
                                 <div class="col">
-                                    <div class="row no-gutters">
-                                        <div class="col">
-                                            <h5><span class="badge badge-primary">Answer</span></h5>
-                                            <p class="font-weight-bold">{{ outputs['answer'] }}<p>
-                                        </div>
-                                    </div>
-                                    {% for additional in outputs['images'][1:] %}
-                                        <div class="row no-gutters">
-                                            <div class="col">
-                                                <h5><span class="badge badge-primary">Additional images</span></h5>
-                                                <img src="{{ url_for('static', filename=additional) }}"
-                                                     class="img-fluid rounded">
-                                            </div>
-                                        </div>
-                                    {% endfor %}
+                                    <h5><span class="badge badge-primary">Answer</span></h5>
+                                    <p class="font-weight-bold">{{ outputs['answer'] }}
+                                    <p>
                                 </div>
                             </div>
+                            {% for additional in outputs['images'][1:] %}
+                            <div class="row no-gutters">
+                                <div class="col">
+                                    <h5><span class="badge badge-primary">Additional images</span></h5>
+                                    <img src="{{ url_for('static', filename=additional) }}"
+                                         class="img-fluid rounded">
+                                </div>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
             </div>
-        {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
     {% endif %}
     <div class="row mt-5"></div>
 </div>
