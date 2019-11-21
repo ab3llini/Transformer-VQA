@@ -29,7 +29,6 @@ import math
 from multiprocessing import Process
 import gensim.downloader as api
 
-
 evaluation_cache = json.load(open(paths.data_path('cache', 'evaluation.json'), 'r'))
 question_path, annotation_path, _ = get_data_paths(data_type='test')
 
@@ -303,8 +302,6 @@ def visualize(model_names, source='results'):
 
     """ END LATEX OUT """
 
-    return
-
     # Visualize BLEU scores
     bleu_plot = {
         'Model': [],
@@ -320,7 +317,7 @@ def visualize(model_names, source='results'):
         }
         for model, scores in models.items():
             for smoothing_fn, value in scores.items():
-                if smoothing_fn not in ['no-smoothing']:
+                if smoothing_fn not in ['no-smoothing', 'avg']:
                     plot_data['Model'].append(model)
                     plot_data['Smoothing'].append(smoothing_fn)
                     plot_data['bleu{}'.format(bleu_n)].append(value)
@@ -337,9 +334,8 @@ def visualize(model_names, source='results'):
         bleu_plot['Metric'].extend(['{}'.format(bleu_n)] * len(plot_data['Model']))
 
     dff = pd.DataFrame(bleu_plot)
-
-    g = sns.FacetGrid(dff, col="Metric", row='Smoothing', hue='Smoothing', margin_titles=True, palette='GnBu_d')
-    g.map(sns.barplot, 'Model', 'Value')
+    g = sns.catplot(x="Model", y="Value", col="Metric", row='Smoothing', margin_titles=True, data=dff, saturation=.5,
+                    kind="bar", ci=None)
     for ax in g.axes.flat:
         for label in ax.get_xticklabels():
             label.set_rotation(90)
@@ -373,33 +369,41 @@ def visualize(model_names, source='results'):
 
     dff = pd.DataFrame(wm_plot_data)
 
-    g = sns.FacetGrid(dff, col="Model", hue='Model', col_wrap=3, sharey=False, sharex=False)
-    g.map(sns.distplot, 'Word Mover Distance', kde=False)
+    g = sns.FacetGrid(dff, col="Model", hue='Model', col_wrap=3, sharey=True, sharex=True)
+    g.map(sns.distplot, 'Word Mover Distance', kde=False, bins=18)
+    g.axes[0].set_ylabel('Number of answers')
+    g.axes[3].set_ylabel('Number of answers')
     g.fig.tight_layout()
     g.savefig(paths.resources_path(source, 'plots', 'word_mover.png'), dpi=300)
     plt.show()
 
     # Plot number of comparable WM distances
-    plot = sns.barplot(x='Model', y='N_WM', data=wm_counts_plot_data)
+
+    plot = sns.barplot(x='Model', y='N_WM', data=wm_counts_plot_data, saturation=.5)
     plot.set_title('Number of comparable WM Distances')
     plot.figure.savefig(paths.resources_path(source, 'plots', 'wm_counts.png'))
     plt.show()
 
     df = {
         'Model': [],
-        'Length': []
+        'Answer length': []
     }
     # Visualize Length scores
     print('Length scores')
     for model, scores in length_scores.items():
         values = list(scores.values())
         df['Model'].extend([model] * len(values))
-        df['Length'].extend(values)
-
-    g = sns.FacetGrid(pd.DataFrame(df), col="Model", hue='Model', col_wrap=3, sharey=False, sharex=False)
-    g.map(sns.distplot, 'Length', kde=False, bins=10)
+        df['Answer length'].extend(values)
+    df = pd.DataFrame(df)
+    m = df['Answer length'].min()
+    M = df['Answer length'].max()
+    g = sns.FacetGrid(df, col="Model", hue='Model', col_wrap=3, sharey=True, sharex=True)
+    g.map(sns.distplot, 'Answer length', kde=False, bins=1 + M - m, hist_kws={"range": [m, M]})
+    g.axes[0].set_ylabel('Number of answers')
+    g.axes[3].set_ylabel('Number of answers')
     g.fig.tight_layout()
     g.savefig(paths.resources_path(source, 'plots', 'lengths.png'))
+
     plt.show()
 
     accuracy_df_common = {
@@ -419,10 +423,9 @@ def visualize(model_names, source='results'):
             accuracy_df_common['Model'].append(model)
             accuracy_df_common['Type'].append(__type)
             accuracy_df_common['Accuracy'].append(v)
+    accuracy_df_common = pd.DataFrame(accuracy_df_common)
 
-    g = sns.FacetGrid(pd.DataFrame(accuracy_df_common), col='Type', sharey=True)
-    g.map(sns.barplot, 'Model', 'Accuracy')
-    g.set(ylim=(0, 1), yticks=np.arange(0, 1, 0.2))
+    g = sns.catplot(x="Model", y="Accuracy", col="Type", data=accuracy_df_common, saturation=.5, kind="bar", ci=None)
 
     for ax in g.axes.flat:
         for label in ax.get_xticklabels():
@@ -432,8 +435,6 @@ def visualize(model_names, source='results'):
         for p in ax.patches:
             ax.annotate("%.2f" % p.get_height(), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center',
                         va='center', xytext=(0, 8), textcoords='offset points')
-
-    g.fig.tight_layout()
 
     g.savefig(paths.resources_path(source, 'plots', 'common_accuracy.png'), dpi=300)
     plt.show()
@@ -461,13 +462,51 @@ def visualize(model_names, source='results'):
             accuracy_df_best['TopK'].extend(['1-10' if i == 0 else '11-20'] * best_k)
             accuracy_df_best['Question type'].extend(top_k_keys)
             accuracy_df_best['Accuracy'].extend(top_k_values)
+    cols = np.array(sns.color_palette())[2:]
 
-    g = sns.FacetGrid(pd.DataFrame(accuracy_df_best), row="Model", col='TopK', hue='Model', sharey=False, height=3,
+    g = sns.FacetGrid(pd.DataFrame(accuracy_df_best), row="Model", col='TopK', hue='Model', palette=cols, sharey=False,
+                      height=3,
                       aspect=1.5)
-    g.map(sns.barplot, 'Accuracy', 'Question type')
+    g.map(sns.barplot, 'Accuracy', 'Question type', saturation=.5)
 
     g.fig.tight_layout()
     g.savefig(paths.resources_path(source, 'plots', 'best_accuracy.png'), dpi=300)
+    plt.show()
+
+    accuracy_df_best = {
+        'Model': [],
+        'Question type': [],
+        'Accuracy': [],
+    }
+
+    best_k = 10
+
+    ordering = accuracies['vggpt2']
+    per_question_type = ordering['perQuestionType']
+    ordered_pqt_scored = sorted(per_question_type.items(), key=lambda kv: kv[1], reverse=True)
+    ordered_pqt_scored = collections.OrderedDict(ordered_pqt_scored)
+    top_k_keys = list(ordered_pqt_scored.keys())[:best_k]
+    top_k_values = [float(v) / 100.0 for k, v in ordered_pqt_scored.items() if k in top_k_keys]
+
+    for model, scores in accuracies.items():
+        if model in ['bert', 'captioning', 'vggpt2']:
+            continue
+        top_k = [float(v) / 100.0 for k, v in scores['perQuestionType'].items() if k in top_k_keys]
+        accuracy_df_best['Model'].extend([model] * best_k)
+        accuracy_df_best['Question type'].extend(top_k_keys)
+        accuracy_df_best['Accuracy'].extend(top_k)
+
+    accuracy_df_best['Model'].extend(['vggpt2'] * best_k)
+    accuracy_df_best['Question type'].extend(top_k_keys)
+    accuracy_df_best['Accuracy'].extend(top_k_values)
+
+    plt.figure(figsize=(6, 10))
+    cols = np.array(sns.color_palette())[2:]
+    plot = sns.barplot(x='Accuracy', y='Question type', hue='Model', palette=cols,
+                       data=pd.DataFrame(accuracy_df_best), saturation=.5)
+    plot.set_title('VGGPT-2\'s Top-{} accuracies comparison'.format(best_k))
+    plt.tight_layout()
+    plot.figure.savefig(paths.resources_path(source, 'plots', 'accuracy_comparison.png'))
     plt.show()
 
 
@@ -502,4 +541,3 @@ if __name__ == '__main__':
             model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
             source=result_dest
         )
-
