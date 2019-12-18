@@ -8,7 +8,7 @@ This repository contains the implementation of a Transformer-based VQA architect
 
 Most VQA systems usually address the task as if it was classification; this works tries to overcome this limitation by exploiting the power of language models such as GPT-2 to generate answers in an autoregressive fashion. 
 
-More specifically, we employ **OpenAI's GPT-2 **small (117M) and combine it with **VGGNet-11** to extract features from both the question and the image. Afterwards, using a CoAttention Mechanism we bring the two modalities down into a common subsbace where a higher level representaion is computed. Finally, we concatenate the attention output back with GPT-2 hidden states and connect back the Transformer head over the vocabulary of words.
+More specifically, we employ **OpenAI's GPT-2** small (117M) and combine it with **VGGNet-11** to extract features from both the question and the image. Afterwards, using a CoAttention Mechanism we bring the two modalities down into a common subsbace where a higher level representaion is computed. Finally, we concatenate the attention output back with GPT-2 hidden states and connect back the Transformer head over the vocabulary of words.
 
 Using Beam-Search we generate our answers one word at a time, effectively exploiting the pre-trained information contained within the language model. However, the generation of each word is conditioned even on the attention block.
 
