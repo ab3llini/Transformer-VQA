@@ -14,7 +14,7 @@ Using Beam-Search we generate our answers one word at a time, effectively exploi
 
 #### Architecture
 
-- ** Image encoder**: VGGNet-11 (pre-trained - dropped final FC and kept only 512, 7x7 maps).
+- **Image encoder** : VGGNet-11 (pre-trained - dropped final FC and kept only 512, 7x7 maps).
 - **Question encoder**: GPT-2 small (pre-trained - dropped head, kept only 768-dim hiddens).
 - **Attention mechanism**: Custom (question-to-image & image-to-question attention).
 - **Final classifier**: FC over 50K words, ad-hoc weight initialization. 
