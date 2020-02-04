@@ -42,7 +42,7 @@ def train(checkpoint=None):
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=lambda out, batch: loss(out[0], batch[0]),
         lr=learning_rate,
-        batch_size=20,
+        batch_size=30,
         epochs=epochs,
         tensorboard=tb,
         num_workers=1,
