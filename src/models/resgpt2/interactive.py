@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 
 from utilities import paths
-from models.vggpt2.model import VGGPT2
+from models.resgpt2.model import ResGPT2
 from utilities.visualization.softmap import *
 from utilities.evaluation.evaluate import *
 from utilities.evaluation.beam_search import *
@@ -30,10 +30,10 @@ def do_beam_search(__model, question, image, beam_search_input, device='cuda', b
 
     if cs is not None:
         seq = torch.cat([question, torch.tensor(cs).to(device)])
-        return gpt2_tokenizer.decode(rm_eos_token(cs)), softmap_visualize(cs_out, seq, image, 7, False)
+        return gpt2_tokenizer.decode(rm_eos_token(cs)), softmap_visualize(cs_out, seq, image, 14, False)
     elif rs is not None:
         seq = torch.cat([question, torch.tensor(rs).to(device)])
-        return gpt2_tokenizer.decode(rm_eos_token(rs)), softmap_visualize(rs_out, seq, image, 7, False)
+        return gpt2_tokenizer.decode(rm_eos_token(rs)), softmap_visualize(rs_out, seq, image, 14, False)
 
 
 def init_singletons():
@@ -42,10 +42,10 @@ def init_singletons():
         global checkpoint
         global model
 
-        vggpt2_path = paths.resources_path('models', 'vggpt2')
-        checkpoint = torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'))
+        resfpt2_path = paths.resources_path('models', 'resgpt2')
+        checkpoint = torch.load(os.path.join(resfpt2_path, 'checkpoints', 'latest', 'B_40_LR_5e-05_CHKP_EPOCH_15.pth'))
 
-        model = VGGPT2()
+        model = ResGPT2()
         model.cuda().set_train_on(False)
         model.load_state_dict(checkpoint)
 
@@ -80,5 +80,5 @@ if __name__ == '__main__':
     with open(paths.resources_path('tmp', 'image.png'), 'rb') as fp:
         img = Image.open(fp)
         q = 'What do you see?'
-        ans, _, _ = answer(q, img)
+        ans, _, = answer(q, img)
         print(ans)

@@ -7,6 +7,7 @@ sys.path.append(root_path)
 
 from flask import Flask, render_template, request, redirect
 import models.vggpt2.interactive as vggpt2_it
+import models.resgpt2.interactive as resgpt2_it
 import models.baseline.vqa.cyanogenoid.interactive as vqa_it
 import www.utils.image as utils
 import shutil
@@ -42,7 +43,7 @@ def get_session_images():
 def get_answers_and_images(question, image_path):
     pil_image = utils.load_image(image_path)
     output = {}
-    for model, it in zip(['VQABaseline', 'VGGPT-2'], [vqa_it, vggpt2_it]):
+    for model, it in zip(['VQABaseline', 'VGGPT-2', 'RESGPT-2'], [vqa_it, vggpt2_it, resgpt2_it]):
         answer, images = it.answer(question, pil_image)
         image_paths = []
         for i, image in enumerate(images):

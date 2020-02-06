@@ -101,6 +101,9 @@ class LightAttention(nn.Module):
         self.rectified_linear = nn.Linear(in_features=self.hidden_dim, out_features=1)
         self.pixel_softmax = nn.Softmax(dim=2)  # Make sure this is 2 and not 1. We softmax over the pixels!
 
+        with torch.no_grad():
+            self.final_linear.weight = torch.zeros(self.final_linear.size())
+
         # Prepare the rectifier
         self.rectify = nn.ReLU()
 
@@ -156,7 +159,7 @@ class LightAttention(nn.Module):
         out = self.final_linear(pointwise_mul)  # (batch_size, n_tokens, hidden)
 
         # We finally pointwise multiply the latter output with the original hidden tensor
-        out = out * hiddens
+        out = out + hiddens
 
         # Return the computed tensors
         return out, pixel_softmax_out

@@ -9,7 +9,7 @@ from utilities.vqa.dataset import *
 import io
 
 
-def softmap_visualize(softmaps, sequence, image, show_plot=True):
+def softmap_visualize(softmaps, sequence, image, map_size=7, show_plot=True):
     """
     Visualize softmaps
     :param softmaps: The softmaps. Expected shape (N, 7*7)
@@ -24,7 +24,7 @@ def softmap_visualize(softmaps, sequence, image, show_plot=True):
     words_tokenized = sequence.tolist()
     words = [gpt2_tokenizer.convert_ids_to_tokens(w) for w in words_tokenized]
     alphas = []
-    softmaps = softmaps.view(softmaps.size(0), 7, 7)
+    softmaps = softmaps.view(softmaps.size(0), map_size, map_size)
     if '<pad>' in words:
         words = words[:words.index('<pad>')]
     assert words[0] == '<bos>'
@@ -41,7 +41,7 @@ def softmap_visualize(softmaps, sequence, image, show_plot=True):
         # We do not have a softmap for the bos token
         if words[t] != '<bos>':
             current_alpha = softmaps[t - 1, :]
-            alpha = skimage.transform.pyramid_expand(current_alpha.numpy(), upscale=32, sigma=8)
+            alpha = skimage.transform.pyramid_expand(current_alpha.numpy(), upscale=224 / map_size, sigma=8)
             # alpha = skimage.transform.resize(current_alpha.numpy(), [7 * 32, 7 * 32])
             if words[t] in ['<eos>', '<sep>']:
                 plt.imshow(alpha, alpha=0)
