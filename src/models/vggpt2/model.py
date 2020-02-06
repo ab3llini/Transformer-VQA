@@ -1,4 +1,13 @@
+import sys
+import os
+
+this_path = os.path.dirname(os.path.realpath(__file__))
+root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
+sys.path.append(root_path)
+
+
 from torch import nn
+
 import copy
 from modules.image_encoders import VGGEncoder11
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
@@ -26,6 +35,7 @@ class VGGPT2(nn.Module):
 
         gpt2_linear = modules[1].weight
         attention_linear = torch.zeros(gpt2_linear.size())
+        print(attention_linear.shape)
 
         # Init modules
         self.gpt2 = copy.deepcopy(modules[0])
@@ -35,6 +45,7 @@ class VGGPT2(nn.Module):
         self.classifier = nn.Linear(in_features=self.hidden_dim * 2, out_features=len(gpt2_tokenizer))
         # Copy the original weights and concat the new ones for the attention
         with torch.no_grad():
+
             self.classifier.weight.copy_(torch.cat([gpt2_linear, attention_linear], dim=1))
 
         self.set_train_on()
@@ -81,3 +92,6 @@ class VGGPT2(nn.Module):
         co_att_out, pixel_softmax_out = self.co_att(vgg_maps, gpt2_hiddens)
         concat = torch.cat([gpt2_hiddens, co_att_out], dim=2)
         return self.classifier(concat), pixel_softmax_out
+
+if __name__ == '__main__':
+    VGGPT2()
