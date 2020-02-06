@@ -104,6 +104,7 @@ class LightAttention(nn.Module):
         with torch.no_grad():
             self.final_linear.weight.copy_(torch.zeros((self.hidden_dim, self.map_dim)))
 
+
         # Prepare the rectifier
         self.rectify = nn.ReLU()
 
