@@ -102,7 +102,7 @@ class LightAttention(nn.Module):
         self.pixel_softmax = nn.Softmax(dim=2)  # Make sure this is 2 and not 1. We softmax over the pixels!
 
         with torch.no_grad():
-            self.final_linear.weightcopy_(torch.zeros((self.hidden_dim, self.map_dim)))
+            self.final_linear.weight.copy_(torch.zeros((self.hidden_dim, self.map_dim)))
 
         # Prepare the rectifier
         self.rectify = nn.ReLU()
