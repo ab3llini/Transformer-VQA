@@ -71,7 +71,7 @@ def prepare_data(split='testing', skip=None):
                                              split=split,
                                              evaluating=True)
 
-    resgpt2_dataset_ts = resgpt2.ResGPT2Dataset(location=os.path.join(resgpt2_path, 'data'),
+    resgpt2_dataset_ts = resgpt2.ResGPT2Dataset(location=os.path.join(vggpt2_path, 'data'),
                                                 split=split,
                                                 evaluating=True)
 
