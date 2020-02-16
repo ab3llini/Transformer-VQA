@@ -6,7 +6,7 @@ class CoAttention(nn.Module):
     def __init__(self, map_dim, hidden_dim, attention_dim=512):
         """
         :param map_dim: Number of maps (i.e. channels) in the used CNN. Usually map_dim = maps.shape[-1]
-        :param hidden_dim: Size of hidden layer of the language model. Usually hidden_size = hiddens.shape[-1]
+        :param hidden_dim: Size of  hidden layer of the language model. Usually hidden_size = hiddens.shape[-1]
         :param attention_dim: Dimension of the attention layers
         """
         super(CoAttention, self).__init__()

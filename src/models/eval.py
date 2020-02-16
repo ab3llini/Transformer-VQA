@@ -6,7 +6,7 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir))
 sys.path.append(root_path)
 
-from datasets import captioning, gpt2, bert, vggpt2
+from datasets import captioning, gpt2, bert, vggpt2, resgpt2
 from utilities.evaluation import sanity
 from utilities.evaluation.evaluate_vqa import vqa_evaluation
 from utilities.vqa.dataset import get_data_paths
@@ -15,6 +15,7 @@ import torch
 import numpy as np
 import models.baseline.captioning.train as modelling_caption
 import models.vggpt2.model as modelling_vggpt2
+import models.resgpt2.model as modelling_resgpt2
 
 from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import *
@@ -52,6 +53,7 @@ def nltk_decode_bert_fn(pred):
 def prepare_data(split='testing', skip=None):
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
+    resgpt2_path = paths.resources_path('models', 'resgpt2')
 
     captioning_dataset_ts = captioning.CaptionDataset(location=os.path.join(baseline_path, 'captioning', 'data'),
                                                       split=split,
@@ -69,6 +71,10 @@ def prepare_data(split='testing', skip=None):
                                              split=split,
                                              evaluating=True)
 
+    resgpt2_dataset_ts = resgpt2.ResGPT2Dataset(location=os.path.join(resgpt2_path, 'data'),
+                                                split=split,
+                                                evaluating=True)
+
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
         modelling_caption.attention_dim,
@@ -82,6 +88,7 @@ def prepare_data(split='testing', skip=None):
     gpt2_model.resize_token_embeddings(len(gpt2.gpt2_tokenizer))
     bert_model = BertForMaskedLM.from_pretrained('bert-base-uncased')
     vggpt2_model = modelling_vggpt2.VGGPT2()
+    resgpt2_model = modelling_resgpt2.ResGPT2()
 
     captioning_model.load_state_dict(
         torch.load(
@@ -97,6 +104,10 @@ def prepare_data(split='testing', skip=None):
 
     vggpt2_model.load_state_dict(
         torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
+    vggpt2_model.set_train_on(False)
+
+    resgpt2_model.load_state_dict(
+        torch.load(os.path.join(resgpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
     vggpt2_model.set_train_on(False)
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))
@@ -115,6 +126,14 @@ def prepare_data(split='testing', skip=None):
             'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
                           gpt2.gpt2_tokenizer.sep_token_id],
             'model': vggpt2_model
+        },
+        'resgpt2': {
+            'dataset': resgpt2_dataset_ts,
+            'vocab_size': len(gpt2.gpt2_tokenizer),
+            'decode_fn': nltk_decode_gpt2_fn,
+            'stop_word': [gpt2.gpt2_tokenizer.eos_token_id, gpt2.gpt2_tokenizer.bos_token_id,
+                          gpt2.gpt2_tokenizer.sep_token_id],
+            'model': resgpt2_model
         },
         'gpt2': {
             'dataset': gpt2_dataset_ts,
@@ -514,8 +533,8 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = False
-    gen_results = False
+    gen_preds = True
+    gen_results = True
     gen_plots = True
     prediction_dest = 'predictions'
     result_dest = 'results'
@@ -531,13 +550,14 @@ if __name__ == '__main__':
         print('Loading glove embeddings..')
         embs = api.load("glove-wiki-gigaword-100")
         evaluate(
-            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
+            # model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
+            model_names=['resgpt2'],
             source=prediction_dest,
             destination=result_dest,
             wm_embeddings=embs
         )
     if gen_plots:
         visualize(
-            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
+            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2'],
             source=result_dest
         )
