@@ -73,6 +73,8 @@ if __name__ == '__main__':
 
         vqa_res = []
 
+        print(model_pred)
+
         for q_id, ans in p_data.items():
             vqa_res.append({
                 'question_id': int(q_id),
