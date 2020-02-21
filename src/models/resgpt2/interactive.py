@@ -43,7 +43,7 @@ def init_singletons():
         global model
 
         resfpt2_path = paths.resources_path('models', 'resgpt2')
-        checkpoint = torch.load(os.path.join(resfpt2_path, 'checkpoints', 'latest', 'B_40_LR_5e-05_CHKP_EPOCH_15.pth'))
+        checkpoint = torch.load(os.path.join(resfpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'))
 
         model = ResGPT2()
         model.cuda().set_train_on(False)
