@@ -63,7 +63,7 @@ def vqa_evaluation(questions, annotations, results, output_dir, precision=2):
 
 if __name__ == '__main__':
     # Convert our predictions into results for VQA
-    path = paths.resources_path('100K_predictions', 'beam_size_1', 'maxlen_20')
+    path = paths.resources_path('predictions', 'beam_size_1', 'maxlen_20')
     predictions = os.listdir(path)
 
     print(predictions)
