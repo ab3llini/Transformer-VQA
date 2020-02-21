@@ -66,6 +66,8 @@ if __name__ == '__main__':
     path = paths.resources_path('100K_predictions', 'beam_size_1', 'maxlen_20')
     predictions = os.listdir(path)
 
+    print(predictions)
+
     for p in predictions:
         model_pred = os.path.join(path, p)
         with open(model_pred, 'r') as fp:
