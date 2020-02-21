@@ -533,7 +533,7 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = True
+    gen_preds = False
     gen_results = True
     gen_plots = True
     prediction_dest = 'predictions'
@@ -550,8 +550,7 @@ if __name__ == '__main__':
         print('Loading glove embeddings..')
         embs = api.load("glove-wiki-gigaword-100")
         evaluate(
-            # model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2'],
-            model_names=['resgpt2'],
+            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2'],
             source=prediction_dest,
             destination=result_dest,
             wm_embeddings=embs
