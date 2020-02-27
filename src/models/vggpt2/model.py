@@ -9,7 +9,7 @@ sys.path.append(root_path)
 from torch import nn
 
 import copy
-from modules.image_encoders import VGGEncoder11
+from modules.image_encoders import VGGEncoder
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from modules.attention import CoAttention
 import torch
@@ -39,7 +39,7 @@ class VGGPT2(nn.Module):
 
         # Init modules
         self.gpt2 = copy.deepcopy(modules[0])
-        self.vgg11 = VGGEncoder11()
+        self.vgg11 = VGGEncoder()
         self.co_att = CoAttention(self.map_dim, self.hidden_dim, self.attention_dim)
 
         self.classifier = nn.Linear(in_features=self.hidden_dim * 2, out_features=len(gpt2_tokenizer))

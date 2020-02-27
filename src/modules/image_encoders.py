@@ -4,13 +4,13 @@ import torch
 from torchvision import models
 
 
-class VGGEncoder11(nn.Module):
+class VGGEncoder(nn.Module):
 
-    def __init__(self):
-        super(VGGEncoder11, self).__init__()
+    def __init__(self, instance=models.vgg11(pretrained=True)):
+        super(VGGEncoder, self).__init__()
 
         # Using pre-trained vgg
-        vgg = models.vgg11(pretrained=True)
+        vgg = instance
 
         # Remove the classifier
         modules = list(vgg.children())[:-1]
@@ -54,8 +54,3 @@ class ResNetEncoder101(nn.Module):
         out = out.permute(0, 2, 3, 1)  # (batch_size, encoded_image_size, encoded_image_size, 2048)
         return out
 
-
-if __name__ == '__main__':
-    x = VGGEncoder11()
-    y = list(x.children())[0][0][-1]
-    print(y)
