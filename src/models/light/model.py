@@ -67,5 +67,40 @@ class LightVggGpt2(ModularGpt2):
         return out
 
 
+class LightResGpt2(ModularGpt2):
+    def __init__(self):
+        super(LightResGpt2, self).__init__()
+        # Image encoder
+        self.image_encoder = ResNetEncoder(models.resnet152(pretrained=True))
+        # Linear expansion (from 512 to 768)
+        self.expansion = nn.Linear(in_features=2048, out_features=768)
+
+        # Disable weight update for both VGG and GPT-2
+        for p in self.image_encoder.parameters():
+            p.requires_grad = False
+        for p in self.gpt2.parameters():
+            p.requires_grad = False
+
+        # Enable weight updates for GPT-2 head and expander
+        for p in self.expansion.parameters():
+            p.requires_grad = True
+        for p in self.head.parameters():
+            p.requires_grad = True
+
+    def forward(self, sequence, image):
+        # (Batch size, 192, 2048)
+        maps = self.image_encoder(image).reshape(-1, 14 * 14, 2048)
+        # (Batch size, 1, 192, 768)
+        maps = self.expansion(maps).unsqueeze(1)
+        # (Batch size, sequence length, 1, 768)
+        hiddens = self.gpt2(sequence)[0].unsqueeze(2)
+        # (Batch size, sequence length, 768)
+        combined = (maps + hiddens).sum(dim=2).squeeze(2)
+        # (Batch size, sequence length, voc_size)
+        out = self.head(combined)
+
+        return out
+
+
 if __name__ == '__main__':
-    LightVggGpt2().show_params()
+    LightResGpt2().show_params()

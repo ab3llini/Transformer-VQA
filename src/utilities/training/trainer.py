@@ -63,6 +63,9 @@ class Trainer:
                 self.model = nn.DataParallel(self.model)
             else:
                 print('DataParallel disabled')
+                gpu = input('Which gpu would you like to use? [0]: ')
+                if gpu != '' and int(gpu) < torch.cuda.device_count():
+                    self.device = torch.device('cuda:{}'.format(gpu))
 
         self.model.to(self.device)
         self.model.zero_grad()
