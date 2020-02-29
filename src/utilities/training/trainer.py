@@ -1,4 +1,5 @@
 import wandb
+import time
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torch
@@ -49,29 +50,33 @@ class Trainer:
         wandb.config.loss = loss
         wandb.config.optimizer = optimizer
 
-
     def run(self):
 
         if torch.cuda.device_count() > 1:
-            print(
-                'We detected {} GPUs, turning DataParallel on.'.format(
+            dp = input(
+                'We detected {} GPUs, do you want to turn DataParallel on? [Y/n]: '.format(
                     torch.cuda.device_count()
                 )
             )
-            self.model = nn.DataParallel(self.model)
+            if dp == 'Y' or dp == 'y':
+                print('Turning on DataParallel')
+                self.model = nn.DataParallel(self.model)
+            else:
+                print('DataParallel disabled')
 
         self.model.to(self.device)
         self.model.zero_grad()
         self.__train()
 
-    def __log(self, epoch, it, its, loss, description, wandb_log=True):
+    def __log(self, epoch, it, its, loss, description, delta=0.0, wandb_log=True):
         print(
-            'Epoch {}/{} | Iter {}/{} | Loss {}'.format(
+            'Epoch {}/{} | Iter {}/{} | Loss {} | Delta {0:.2f}'.format(
                 epoch + 1,
                 self.epochs,
                 it,
                 its,
-                loss
+                loss,
+                delta
             )
         )
         if wandb_log:
@@ -92,6 +97,8 @@ class Trainer:
         for epoch in range(self.epochs):
             running_loss = 0
             epoch_loss = 0
+            running_timer = time.time()
+            epoch_timer = time.time()
             for it, batch in enumerate(loader):
                 # Move tensors to device
                 batch = list(map(lambda tensor: tensor.to(self.device), batch))
@@ -118,9 +125,11 @@ class Trainer:
                         it + 1,
                         len(loader),
                         running_loss,
-                        'Running training loss'
+                        'Running training loss',
+                        time.time() - running_timer
                     )
                     running_loss = 0
+                    running_timer = time.time()
 
             # Done with current epoch
             self.__log(
@@ -128,7 +137,8 @@ class Trainer:
                 len(loader),
                 len(loader),
                 epoch_loss / len(loader),
-                'Training loss'
+                'Training loss',
+                time.time() - epoch_timer
             )
 
             torch.save(
@@ -157,6 +167,8 @@ class Trainer:
         print('Testing..')
         test_loss = 0
         running_loss = 0
+        running_timer = time.time()
+        test_timer = time.time()
 
         with torch.no_grad():
             for it, batch in enumerate(loader):
@@ -176,9 +188,11 @@ class Trainer:
                         len(loader),
                         running_loss / self.log_interval,
                         'Testing running loss',
+                        time.time() - running_timer,
                         wandb_log=False
                     )
                     running_loss = 0
+                    running_timer = time.time()
 
             test_loss /= len(loader)
 
@@ -187,5 +201,6 @@ class Trainer:
                 len(loader),
                 len(loader),
                 test_loss,
+                time.time() - test_timer,
                 'Testing loss'
             )
