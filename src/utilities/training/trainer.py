@@ -70,14 +70,13 @@ class Trainer:
 
     def __log(self, epoch, it, its, loss, description, delta=0.0, wandb_log=True):
         print(
-            'Epoch {}/{} | Iter {}/{} | Loss {} | Delta {0:.2f}'.format(
+            'Epoch: {}/{} | Iter: {}/{} | Loss: {}'.format(
                 epoch + 1,
                 self.epochs,
                 it,
                 its,
                 loss,
-                delta
-            )
+            ) + ' | Delta: {0:.2f}s'.format(delta)
         )
         if wandb_log:
             wandb.log({"{}".format(description): loss}, step=self.global_step)
