@@ -43,7 +43,7 @@ def train():
 
     print('pad token = ', bert_tokenizer.pad_token_id, bert_tokenizer.pad_token)
 
-    bert_trainer = Trainer(
+    bert_trainer = LegacyTrainer(
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=None,

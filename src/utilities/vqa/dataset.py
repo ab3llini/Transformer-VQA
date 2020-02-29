@@ -52,7 +52,7 @@ def resize_image(image, size=224, central_fraction=1.0):
         raise Exception('Grayscale detection')
 
     transform = transforms.Compose([
-        transforms.Scale(int(size / central_fraction)),
+        transforms.Resize(int(size / central_fraction)),
         transforms.CenterCrop(size)
     ])
 

@@ -92,6 +92,3 @@ class VGGPT2(nn.Module):
         co_att_out, pixel_softmax_out = self.co_att(vgg_maps, gpt2_hiddens)
         concat = torch.cat([gpt2_hiddens, co_att_out], dim=2)
         return self.classifier(concat), pixel_softmax_out
-
-if __name__ == '__main__':
-    VGGPT2()

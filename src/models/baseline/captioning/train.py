@@ -5,7 +5,7 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from utilities.training.trainer import Trainer
+from utilities.training.trainer import LegacyTrainer
 import torch.backends.cudnn as cudnn
 import torch.utils.data
 from torch import nn
@@ -80,7 +80,7 @@ def train():
             print('Trainable : FALSE ->', name)
     print('Model parameters: {}'.format(sum(p.numel() for p in model.decoder.parameters() if p.requires_grad)))
 
-    caption_trainer = Trainer(
+    caption_trainer = LegacyTrainer(
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=None,

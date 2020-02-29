@@ -7,7 +7,7 @@ sys.path.append(root_path)
 
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
-from utilities.training.trainer import Trainer
+from utilities.training.trainer import LegacyTrainer
 from utilities.paths import resources_path
 from datasets.vggpt2 import VGGPT2Dataset
 from modules.loss import GPT2Loss
@@ -53,7 +53,7 @@ def train(checkpoint=None):
 
     tb = SummaryWriter(log_dir=resources_path(model_basepath, 'runs', 'latest'))
 
-    gpt2_trainer = Trainer(
+    gpt2_trainer = LegacyTrainer(
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=None,

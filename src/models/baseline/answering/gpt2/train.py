@@ -67,7 +67,7 @@ def train():
 
     learning_rate = 5e-5
 
-    gpt2_trainer = Trainer(
+    gpt2_trainer = LegacyTrainer(
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=ts_dataset,
