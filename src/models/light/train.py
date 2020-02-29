@@ -54,4 +54,4 @@ if __name__ == '__main__':
     assert 0 <= selected < len(available), 'Invalid selection'
 
     batch_size = input('Batch size? [124]: ')
-    train(batch_size=int(batch_size)) if batch_size != '' else train()
+    train(available[selected], batch_size=int(batch_size)) if batch_size != '' else train(available[selected])
