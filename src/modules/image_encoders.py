@@ -26,7 +26,7 @@ class VGGEncoder(nn.Module):
 
 class ResNetEncoder(nn.Module):
 
-    def __init__(self, encoded_image_size=14, instance=models.vgg11(pretrained=True)):
+    def __init__(self, encoded_image_size=14, instance=models.resnet101(pretrained=True)):
         super(ResNetEncoder, self).__init__()
         self.enc_image_size = encoded_image_size
 

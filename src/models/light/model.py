@@ -71,7 +71,7 @@ class LightResGpt2(ModularGpt2):
     def __init__(self):
         super(LightResGpt2, self).__init__()
         # Image encoder
-        self.image_encoder = ResNetEncoder(models.resnet152(pretrained=True))
+        self.image_encoder = ResNetEncoder(encoded_image_size=14, instance=models.resnet152(pretrained=True))
         # Linear expansion (from 512 to 768)
         self.expansion = nn.Linear(in_features=2048, out_features=768)
 
