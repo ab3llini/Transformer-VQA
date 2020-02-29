@@ -23,7 +23,7 @@ def train(batch_size=124):
     ts_dataset = LightDataset(resources_path(basepath, 'data'), split='testing')
     learning_rate = 5e-5
     epochs = 20
-    batch_size = 124
+    batch_size = batch_size
 
     trainer = Trainer(
         wandb_args={'project': 'light-models', 'name': 'vgg-gpt2-1'},
