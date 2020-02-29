@@ -19,8 +19,8 @@ def train(model_name, batch_size=124):
 
     loss = LightLoss(pad_token_id=gpt2_tokenizer._convert_token_to_id('-'))
     model = LightVggGpt2() if model_name == 'vgg-gpt2' else LightResGpt2()
-    tr_dataset = LightDataset(os.path.join('models', 'light', 'vgg-gpt2', 'data'))
-    ts_dataset = LightDataset(os.path.join('models', 'light', 'vgg-gpt2', 'data'))
+    tr_dataset = LightDataset(resources_path(os.path.join('models', 'light', 'vgg-gpt2', 'data')))
+    ts_dataset = LightDataset(resources_path(os.path.join('models', 'light', 'vgg-gpt2', 'data')), split='testing')
     learning_rate = 5e-5
     epochs = 20
     batch_size = batch_size
@@ -33,7 +33,7 @@ def train(model_name, batch_size=124):
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=loss,
         epochs=epochs,
-        num_workers=1,
+        num_workers=4,
         checkpoint_path=resources_path(basepath, 'checkpoints', 'latest'),
         device='cuda',
         shuffle=True,
