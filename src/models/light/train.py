@@ -33,7 +33,7 @@ def train(model_name, batch_size=124):
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=loss,
         epochs=epochs,
-        num_workers=4,
+        num_workers=1,
         checkpoint_path=resources_path(basepath, 'checkpoints', 'latest'),
         device='cuda',
         shuffle=True,
