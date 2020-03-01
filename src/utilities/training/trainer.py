@@ -203,6 +203,6 @@ class Trainer:
                 len(loader),
                 len(loader),
                 test_loss,
-                time.time() - test_timer,
-                'Testing loss'
+                'Testing loss',
+                time.time() - test_timer
             )
