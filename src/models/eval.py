@@ -91,7 +91,6 @@ def prepare_data(split='testing', skip=None):
 
     light_dataset_ts = light.LightDataset(location=(os.path.join(light_path, 'vgg-gpt2', 'data')),
                                           split=split,
-                                          maxlen=20,
                                           evaluating=True)
 
     # Define model skeletons
