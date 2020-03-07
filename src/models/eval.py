@@ -6,9 +6,10 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir))
 sys.path.append(root_path)
 
-from datasets import captioning, gpt2, bert, vggpt2, resgpt2
+from datasets import captioning, gpt2, bert, vggpt2, resgpt2, light
 from utilities.evaluation import sanity
-from utilities.evaluation.evaluate_vqa import vqa_evaluation
+from utilities.evaluation.evaluate_vqa import vqa_evaluation, convert_to_vqa
+
 from utilities.vqa.dataset import get_data_paths
 from utilities import paths
 import torch
@@ -16,6 +17,10 @@ import numpy as np
 import models.baseline.captioning.train as modelling_caption
 import models.vggpt2.model as modelling_vggpt2
 import models.resgpt2.model as modelling_resgpt2
+
+from models.light.predict import predict as light_predict_fn
+from models.light.model import LightVggGpt2, LightResGpt2
+from models.light.model import gpt2_tokenizer as light_tokenizer
 
 from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import *
@@ -42,6 +47,14 @@ def nltk_decode_gpt2_fn(pred):
         return ''
 
 
+def nltk_decode_light_fn(pred):
+    try:
+        return nltk.word_tokenize(light_tokenizer.decode(pred))
+    except Exception as e:
+        print('Exception while trying to decode {}.. Returning an empty string..'.format(pred))
+        return ''
+
+
 def nltk_decode_bert_fn(pred):
     try:
         return nltk.word_tokenize(bert.bert_tokenizer.decode(pred))
@@ -54,6 +67,7 @@ def prepare_data(split='testing', skip=None):
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
     resgpt2_path = paths.resources_path('models', 'resgpt2')
+    light_path = paths.resources_path('models', 'light')
 
     captioning_dataset_ts = captioning.CaptionDataset(location=os.path.join(baseline_path, 'captioning', 'data'),
                                                       split=split,
@@ -75,6 +89,11 @@ def prepare_data(split='testing', skip=None):
                                                 split=split,
                                                 evaluating=True)
 
+    light_dataset_ts = light.LightDataset(location=(os.path.join(light_path, 'vgg-gpt2', 'data')),
+                                          split=split,
+                                          maxlen=20,
+                                          evaluating=True)
+
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
         modelling_caption.attention_dim,
@@ -89,6 +108,8 @@ def prepare_data(split='testing', skip=None):
     bert_model = BertForMaskedLM.from_pretrained('bert-base-uncased')
     vggpt2_model = modelling_vggpt2.VGGPT2()
     resgpt2_model = modelling_resgpt2.ResGPT2()
+    light_vgg_model = LightVggGpt2()
+    light_res_model = LightResGpt2()
 
     captioning_model.load_state_dict(
         torch.load(
@@ -109,6 +130,14 @@ def prepare_data(split='testing', skip=None):
     resgpt2_model.load_state_dict(
         torch.load(os.path.join(resgpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
     vggpt2_model.set_train_on(False)
+
+    light_vgg_model.load_state_dict(
+        torch.load(resources_path(
+            os.path.join('models', 'light', 'vgg-gpt2', 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth')), map_location='cuda:0'))
+
+    light_res_model.load_state_dict(
+        torch.load(resources_path(
+            os.path.join('models', 'light', 'res-gpt2', 'checkpoints', 'latest', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth')),map_location='cuda:0'))
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))
 
@@ -157,6 +186,22 @@ def prepare_data(split='testing', skip=None):
             'stop_word': [bert.bert_tokenizer.cls_token_id,
                           bert.bert_tokenizer.sep_token_id],
             'model': bert_model
+        },
+        'light-vgg-gpt2': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': light_vgg_model,
+            'predict_fn': light_predict_fn
+        },
+        'light-res-gpt2': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': light_res_model,
+            'predict_fn': light_predict_fn
         }
     }
 
@@ -178,20 +223,33 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
         if skip is not None and model_name in skip:
             continue
         print('Generating predictions for {}'.format(model_name))
-        predictions = generate_predictions(
-            model=parameters['model'],
-            dataset=parameters['dataset'],
-            decode_fn=parameters['decode_fn'],
-            vocab_size=parameters['vocab_size'],
-            beam_size=beam_size,
-            stop_word=parameters['stop_word'],
-            max_len=limit,
-        )
+        if 'predict_fn' in parameters:
+            predictions = parameters['predict_fn'](
+                model=parameters['model'],
+                dataset=parameters['dataset'],
+                decode_fn=parameters['decode_fn'],
+                stop_word=parameters['stop_word'],
+                max_len=limit,
+            )
+        else:
+            predictions = generate_predictions(
+                model=parameters['model'],
+                dataset=parameters['dataset'],
+                decode_fn=parameters['decode_fn'],
+                vocab_size=parameters['vocab_size'],
+                beam_size=beam_size,
+                stop_word=parameters['stop_word'],
+                max_len=limit,
+            )
         with open(paths.resources_path(destination,
                                        'beam_size_{}'.format(beam_size),
                                        'maxlen_{}'.format(limit),
                                        model_name + '.json'), 'w+') as fp:
             json.dump(predictions, fp)
+
+    # Generate VQA Ready predictions
+    convert_to_vqa()
+
 
 
 def compute_single_bleu(bleu, name, predictions, references, destination):
@@ -533,7 +591,7 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = False
+    gen_preds = True
     gen_results = True
     gen_plots = True
     prediction_dest = 'predictions'
@@ -544,19 +602,22 @@ if __name__ == '__main__':
             data=prepare_data(),
             beam_size=1,
             limit=20,
+            skip=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2'],
             destination=prediction_dest
         )
     if gen_results:
         print('Loading glove embeddings..')
         embs = api.load("glove-wiki-gigaword-100")
         evaluate(
-            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2'],
+            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2', 'light-vgg-gpt2',
+                         'light-res-gpt2'],
             source=prediction_dest,
             destination=result_dest,
             wm_embeddings=embs
         )
     if gen_plots:
         visualize(
-            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2'],
+            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2', 'light-vgg-gpt2',
+                         'light-res-gpt2'],
             source=result_dest
         )

@@ -35,6 +35,7 @@ class ModularGpt2(nn.Module):
 class LightVggGpt2(ModularGpt2):
     def __init__(self):
         super(LightVggGpt2, self).__init__()
+
         # Image encoder
         self.image_encoder = VGGEncoder(models.vgg19(pretrained=True))
         # Linear expansion (from 512 to 768)
@@ -88,6 +89,7 @@ class LightResGpt2(ModularGpt2):
             p.requires_grad = True
 
     def forward(self, sequence, image):
+
         # (Batch size, 192, 2048)
         maps = self.image_encoder(image).reshape(-1, 14 * 14, 2048)
         # (Batch size, 1, 192, 768)

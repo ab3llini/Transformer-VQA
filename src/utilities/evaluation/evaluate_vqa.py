@@ -61,7 +61,7 @@ def vqa_evaluation(questions, annotations, results, output_dir, precision=2):
     json.dump(vqaEval.evalAnsType, open(os.path.join(output_dir, 'ans_type.json'), 'w+'))
 
 
-if __name__ == '__main__':
+def convert_to_vqa():
     # Convert our predictions into results for VQA
     path = paths.resources_path('predictions', 'beam_size_1', 'maxlen_20')
     predictions = os.listdir(path)
@@ -85,3 +85,6 @@ if __name__ == '__main__':
 
         with open(os.path.join(path, 'vqa_ready_{}'.format(p)), 'w+') as fp:
             json.dump(vqa_res, fp)
+
+if __name__ == '__main__':
+    convert_to_vqa()

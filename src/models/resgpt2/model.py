@@ -1,6 +1,6 @@
 from torch import nn
 import copy
-from modules.image_encoders import ResNetEncoder101
+from modules.image_encoders import ResNetEncoder
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from modules.attention import LightAttention
 import torch
@@ -27,7 +27,7 @@ class ResGPT2(nn.Module):
 
         # Init modules
         self.gpt2 = copy.deepcopy(modules[0])
-        self.resnet = ResNetEncoder101()
+        self.resnet = ResNetEncoder()
         self.att = LightAttention(self.map_dim, self.hidden_dim)
         self.classifier = gpt2_linear
 
@@ -55,7 +55,7 @@ class ResGPT2(nn.Module):
         for param in self.resnet.parameters():
             param.requires_grad = False
 
-        self.show_params()
+        # self.show_params()
 
     def show_params(self):
         for name, param in self.named_parameters():

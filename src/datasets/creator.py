@@ -147,10 +147,10 @@ class DatasetCreator:
         return data
 
     @staticmethod
-    def pad_sequences(data, axis, value, maxlen):
+    def pad_sequences(data, axis, value, maxlen, padding='post'):
         if not isinstance(data, (np.ndarray, np.generic)):
             data = np.array(data)
-        padded = k_preproc.sequence.pad_sequences(data[:, axis], padding='post',
+        padded = k_preproc.sequence.pad_sequences(data[:, axis], padding=padding,
                                                   value=value, maxlen=maxlen)
         for sample, pad in zip(data, padded):
             sample[axis] = pad.tolist()
@@ -162,14 +162,21 @@ class DatasetCreator:
         assert split in ['training', 'testing'], Exception('Undefined split in create args')
         assert process_mode in ['list', 'dict'], Exception('Undefined elem_process_mode in create args')
 
+        if destination is None:
+            print('No destination was provided.')
+            return
+
+        if os.path.exists(os.path.join('{}.json'.format(destination)), 'w+'):
+            print('Dataset {} already exists, skipping..'.format(os.path.join('{}.json'.format(destination))))
+            return
+        else:
+            print('Dataset {} does not exists, building..'.format(os.path.join('{}.json'.format(destination))))
+
+
         cache = self.__load_cached(split=split)
         if cache is None or len(cache) != (size + size * 0.5):
             self.__build(split=split, size=(size + size * 0.5) if split == 'training' else size)  # Make cache 1.5x bigger
             cache = self.__load_cached(split=split)
-
-        if destination is None:
-            print('No destination was provided.')
-            return
 
         data = cache if process_mode == 'list' else {}
 
@@ -205,6 +212,7 @@ class DatasetCreator:
     def create_together(self, tr_size, ts_size, tr_destination, ts_destination, pre_processing_fn=None,
                         elem_processing_fn=None,
                         post_processing_fn=None):
+
 
         tr_cache = self.__load_cached(split='training')
         ts_cache = self.__load_cached(split='testing')
@@ -262,10 +270,12 @@ class MultiPurposeDataset(Dataset):
             self.split = split
             self.evaluating = evaluating
 
+            """
             if evaluating:
                 evaluation_data_file = resources_path(data_path('cache'), 'evaluation.json')
                 with open(evaluation_data_file, 'r') as j:
                     self.evaluation_data = json.load(j)
+            """
 
             print('Data loaded successfully.')
 

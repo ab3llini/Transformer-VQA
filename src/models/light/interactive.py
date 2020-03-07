@@ -13,6 +13,10 @@ from datasets.light import LightDataset
 from modules.loss import LightLoss
 from models.light.model import LightVggGpt2, LightResGpt2, gpt2_tokenizer
 import torch
+from utilities import paths
+from utilities.visualization.softmap import *
+from utilities.evaluation.evaluate import *
+from utilities.evaluation.beam_search import *
 
 init = False
 checkpointVGG, checkpointResNet = None, None
@@ -28,20 +32,27 @@ def init_singletons():
         global modelResNet
 
         vgg_path = paths.resources_path('models', 'light', 'vgg_gpt2')
-        res_path = paths.resources_path('models', 'light', '')
-        checkpointVGG = torch.load(os.path.join(vgg_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'))
-        checkpointResNet = torch.load(os.path.join(vgg_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'))
+        res_path = paths.resources_path('models', 'light', 'res_gpt-2')
+        checkpointVGG = torch.load(os.path.join(vgg_path, 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'))
+        checkpointResNet = torch.load(
+            os.path.join(res_path, 'checkpoints', 'latest', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth'))
 
-        modelVGG = LightVggGpt2()
-        modelResNet = LightResGpt2()
-        model.cuda().set_train_on(False)
-        model.load_state_dict(checkpoint)
+        modelVGG = LightVggGpt2(inference=True)
+        modelResNet = LightResGpt2(inference=True)
+
+        modelVGG.cuda()
+        modelVGG.load_state_dict(checkpointVGG)
+
+        modelResNet.cuda()
+        modelResNet.load_state_dict(checkpointResNet)
 
         init = True
 
 
+
 def answer(question, image):
-    global model
+    global checkpointVGG
+    global checkpointResNet
 
     init_singletons()
 
@@ -52,13 +63,10 @@ def answer(question, image):
 
     # Encode question
     question_tkn = gpt2_tokenizer.encode(question)
-    question_tkn = [gpt2_tokenizer.bos_token_id] + question_tkn + [gpt2_tokenizer.sep_token_id]
     tensor_question = torch.tensor(question_tkn).long().cuda()
-
-    # Prepare Beam search input
-    beam_input = BeamSearchInput(0, 0, tensor_question, tensor_image)
+    tensor_question_len = torch.tensor(len(question_tkn)).long().cuda()
 
     # Predict
-    ans, softmaps = do_beam_search(model, tensor_question, resized_image, beam_input)
+    ans, softmaps = None, None
 
-    return ans, [resized_image, softmaps]
+    return ans, [resized_image]

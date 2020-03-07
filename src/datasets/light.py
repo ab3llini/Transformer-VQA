@@ -14,6 +14,8 @@ from collections import Counter
 
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 
+pad_token = gpt2_tokenizer._convert_token_to_id('-')
+
 
 def create_datasets(base_path):
     seq_counter = {
@@ -28,8 +30,7 @@ def create_datasets(base_path):
 
         if question[-1] != '?':
             print('Warning: question: "{}" doesn\'t have a question mark at the end. Fixing..'.format(question))
-
-        question = question + '?'
+            question = question + '?'
 
         question_tkn = gpt2_tokenizer.encode(question)
         question_tkn_len = len(question_tkn)
@@ -78,10 +79,6 @@ def create_datasets(base_path):
             if freq > 1000:
                 if max_len_ts < length:
                     max_len_ts = length
-        for length, freq in seq_counter['testing_q'].items():
-            if freq > 1000:
-                if max_len_ts_q < length:
-                    max_len_ts_q = length
 
         # Pad sequences
         print('Padding training sequences to {}..'.format(max_len_tr))
@@ -91,9 +88,6 @@ def create_datasets(base_path):
         print('Padding testing sequences to {}..'.format(max_len_ts))
         ts_data = DatasetCreator.pad_sequences(ts_data, axis=1, value=int(gpt2_tokenizer._convert_token_to_id('-')),
                                                maxlen=max_len_ts)
-        print('Padding testing questions to {}..'.format(max_len_ts_q))
-        ts_data = DatasetCreator.pad_sequences(ts_data, axis=2, value=int(gpt2_tokenizer._convert_token_to_id('-')),
-                                               maxlen=max_len_ts_q)
 
         return tr_data, ts_data
 
@@ -112,21 +106,21 @@ class LightDataset(MultiPurposeDataset):
         if self.split == 'training':
             _, sequence, image_path = sample
         elif self.split == 'testing':
-            __id, sequence, _, image_path = sample
-        else:
-            __id, _, question, image_path = sample
+            if not self.evaluating:
+                _, sequence, _, image_path = sample
+            else:
+                __id, _, question, image_path = sample
 
         image = load_image(image_rel_path=image_path)
         resized_image = resize_image(image)
         image = normalized_tensor_image(resized_image)
 
-        if self.split == 'training' or self.split == 'testing':
+        if not self.evaluating:
             return torch.tensor(sequence).long(), \
                    image
         else:
-            return torch.tensor(question).long(), \
-                   image
-
+            return __id, torch.tensor(question).long(), \
+                   image, \
 
 if __name__ == '__main__':
     path = resources_path('models', 'light', 'vgg-gpt2', 'data')

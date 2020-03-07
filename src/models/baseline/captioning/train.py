@@ -5,7 +5,7 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from utilities.training.trainer import LegacyTrainer
+from utilities.training.legacy_trainer import LegacyTrainer
 import torch.backends.cudnn as cudnn
 import torch.utils.data
 from torch import nn
