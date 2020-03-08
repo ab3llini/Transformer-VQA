@@ -14,6 +14,7 @@ from models.light.model import LightVggGpt2, LightResGpt2, gpt2_tokenizer
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import nltk
 
 
 def predict(model, dataset, decode_fn, stop_word, max_len, device='cuda:0'):
@@ -62,13 +63,21 @@ def predict(model, dataset, decode_fn, stop_word, max_len, device='cuda:0'):
 
             predictions[str(__id.item())] = answer
 
-            # print('Done after {} => {}'.format(its, gpt2_tokenizer.decode(batch[0].squeeze(0).tolist())))
-
-    print(predictions)
-    print('Decoding & NLTK encoding predictions with the provided tokenizer..')
-    predictions = dict(map(lambda item: (item[0], decode_fn(item[1])), predictions.items()))
+            print('Done after {} => {}->{}'.format(its, __id, gpt2_tokenizer.decode(batch[0].squeeze(0).tolist())))
+            print('What was saved to the prediction out > {}'.format(predictions[str(__id.item())]))
+            print('After decode > {}'.format(gpt2_tokenizer.decode(predictions[str(__id.item())])))
+            print('After custom decode fn > {}'.format(decode_fn(predictions[str(__id.item())])))
+    if decode_fn:
+        print('Decoding & NLTK encoding predictions with the provided tokenizer..')
+        predictions = dict(map(lambda item: (item[0], decode_fn(item[1])), predictions.items()))
     return predictions
 
+def nltk_decode_light_fn(pred):
+    try:
+        return nltk.word_tokenize(gpt2_tokenizer.decode(pred))
+    except Exception as e:
+        print('Exception while trying to decode {}.. Returning an empty string..'.format(pred))
+        return ''
 
 if __name__ == '__main__':
     model = LightVggGpt2()
@@ -77,4 +86,4 @@ if __name__ == '__main__':
     dataset = LightDataset(resources_path(os.path.join('models', 'light', 'vgg-gpt2', 'data')), split='testing',
                            evaluating=True)
 
-    predict(model, dataset, 1, eos_token=gpt2_tokenizer.eos_token_id)
+    predict(model, dataset, decode_fn=nltk_decode_light_fn, max_len=20, stop_word=[gpt2_tokenizer.eos_token_id])

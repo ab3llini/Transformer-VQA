@@ -5,9 +5,10 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir))
 sys.path.append(root_path)
 
-from datasets import captioning, gpt2, bert, vggpt2
+from datasets import captioning, gpt2, bert, vggpt2, light
 from utilities.evaluation import sanity
 from utilities import paths
+from models.light.model import gpt2_tokenizer as light_tokenizer
 import torch
 
 import models.baseline.captioning.train as modelling_caption
@@ -29,6 +30,7 @@ from collections import Counter
 if __name__ == '__main__':
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
+    light_path = paths.resources_path('models', 'light')
 
     __data = {
         'captioning': {
@@ -77,6 +79,17 @@ if __name__ == '__main__':
             'has_ans': [True, False],
             'sep': gpt2.gpt2_tokenizer.sep_token_id,
             'pad': gpt2.gpt2_tokenizer.pad_token_id
+        },
+        'light': {
+            'data': [
+                light.LightDataset(location=os.path.join(light_path, 'vgg-gpt2', 'data')).data,
+                light.LightDataset(location=os.path.join(light_path,'vgg-gpt2', 'data'), split='testing').data
+            ],
+            'seq_idx': [1, 1],
+            'img_idx': [2, 3],
+            'has_ans': [True, False],
+            'sep': light_tokenizer._convert_token_to_id('??'),
+            'pad': light_tokenizer._convert_token_to_id('-')
         }
     }
 
@@ -122,7 +135,11 @@ if __name__ == '__main__':
                         if sep is None:
                             sep_idx = len(seq)
                         else:
-                            sep_idx = seq.index(sep)
+                            if sep in seq:
+                                sep_idx = seq.index(sep)
+                            else:
+                                print('Warning: not sep in {}'.format(e))
+                                continue
 
                         is_padded = pad in seq
 

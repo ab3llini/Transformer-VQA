@@ -5,18 +5,15 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
-from utilities import paths
-from torch.optim import Adam
-from utilities.training.trainer import Trainer
-from utilities.paths import resources_path
-from datasets.light import LightDataset
-from modules.loss import LightLoss
-from models.light.model import LightVggGpt2, LightResGpt2, gpt2_tokenizer
+
 import torch
 from utilities import paths
 from utilities.visualization.softmap import *
 from utilities.evaluation.evaluate import *
 from utilities.evaluation.beam_search import *
+from models.light.model import LightVggGpt2, LightResGpt2
+from models.light.model import gpt2_tokenizer as light_tokenizer
+
 
 init = False
 checkpointVGG, checkpointResNet = None, None
@@ -31,14 +28,14 @@ def init_singletons():
         global modelVGG
         global modelResNet
 
-        vgg_path = paths.resources_path('models', 'light', 'vgg_gpt2')
-        res_path = paths.resources_path('models', 'light', 'res_gpt-2')
-        checkpointVGG = torch.load(os.path.join(vgg_path, 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'))
+        vgg_path = paths.resources_path('models', 'light', 'vgg-gpt2')
+        res_path = paths.resources_path('models', 'light', 'res-gpt2')
+        checkpointVGG = torch.load(os.path.join(vgg_path, 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'), map_location='cuda:0')
         checkpointResNet = torch.load(
-            os.path.join(res_path, 'checkpoints', 'latest', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth'))
+            os.path.join(res_path, 'checkpoints', 'latest', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth'),map_location='cuda:0')
 
-        modelVGG = LightVggGpt2(inference=True)
-        modelResNet = LightResGpt2(inference=True)
+        modelVGG = LightVggGpt2()
+        modelResNet = LightResGpt2()
 
         modelVGG.cuda()
         modelVGG.load_state_dict(checkpointVGG)
@@ -49,24 +46,76 @@ def init_singletons():
         init = True
 
 
+def predict(model, question, image, stop_word, max_len, device='cuda:0'):
+    # Set the model in evaluation mode
+    model.eval()
+    model.to(device)
 
-def answer(question, image):
-    global checkpointVGG
-    global checkpointResNet
+    with torch.no_grad():
 
-    init_singletons()
+        answer = []
+        question = question.to(device)
+        stop_condition = False
+        its = 0
 
+        while not stop_condition:
+            out = model(question, image)
+            # Get predicted words in this beam batch
+            pred = torch.argmax(out[0, -1, :])
+
+            eos = (pred.item() in stop_word)
+            its += 1
+
+            stop_condition = eos or its > max_len
+
+            if not eos:
+                # Append the predicted token to the question
+                question = torch.cat([question, pred.unsqueeze(0).unsqueeze(0)], dim=1)
+                # Append the predicted token to the answer
+                answer.append(pred.item())
+
+        return light_tokenizer.decode(answer)
+
+
+def a(m, q, i):
     # Resize and convert image to tensor
     torch.manual_seed(0)
-    resized_image = resize_image(image)
-    tensor_image = normalized_tensor_image(resized_image).cuda()
+    resized_image = resize_image(i)
+    tensor_image = normalized_tensor_image(resized_image).cuda().unsqueeze(0)
 
     # Encode question
-    question_tkn = gpt2_tokenizer.encode(question)
-    tensor_question = torch.tensor(question_tkn).long().cuda()
-    tensor_question_len = torch.tensor(len(question_tkn)).long().cuda()
+    if q is not None and len(q) > 1:
+        if q[-1] == '?':
+            if q[-2] != '?':
+                q += '?'
+        else:
+            q += '??'
+
+    print(q)
+
+    question_tkn = gpt2_tokenizer.encode(q)
+    tensor_question = torch.tensor(question_tkn).long().cuda().unsqueeze(0)
 
     # Predict
-    ans, softmaps = None, None
+    return predict(m, tensor_question, tensor_image, [light_tokenizer.eos_token_id], 20), [resized_image]
 
-    return ans, [resized_image]
+
+def answer_vgg(question, image):
+    global modelVGG
+    init_singletons()
+    return a(modelVGG, question, image)
+
+
+def answer_res(question, image):
+    global modelResNet
+    init_singletons()
+    return a(modelResNet, question, image)
+
+
+if __name__ == '__main__':
+    with open(paths.resources_path('tmp', 'image.png'), 'rb') as fp:
+        img = Image.open(fp)
+        q = 'What do you see?'
+        ans, _, = answer_vgg(q, img)
+        print(ans)
+

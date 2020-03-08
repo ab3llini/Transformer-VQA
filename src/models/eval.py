@@ -223,6 +223,7 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
             continue
         print('Generating predictions for {}'.format(model_name))
         if 'predict_fn' in parameters:
+            print('Using custom prediction function')
             predictions = parameters['predict_fn'](
                 model=parameters['model'],
                 dataset=parameters['dataset'],

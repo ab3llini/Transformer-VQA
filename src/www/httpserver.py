@@ -8,6 +8,7 @@ sys.path.append(root_path)
 from flask import Flask, render_template, request, redirect
 import models.vggpt2.interactive as vggpt2_it
 import models.resgpt2.interactive as resgpt2_it
+import models.light.interactive as light_it
 import models.baseline.vqa.cyanogenoid.interactive as vqa_it
 import www.utils.image as utils
 import shutil
@@ -43,8 +44,13 @@ def get_session_images():
 def get_answers_and_images(question, image_path):
     pil_image = utils.load_image(image_path)
     output = {}
-    for model, it in zip(['VQABaseline', 'VGGPT-2', 'RESGPT-2'], [vqa_it, vggpt2_it, resgpt2_it]):
-        answer, images = it.answer(question, pil_image)
+    for model, it in zip(['VQABaseline', 'VGGPT-2', 'LightVGG', 'LightResNet'], [vqa_it, vggpt2_it, light_it, light_it]):
+        if model == 'LightVGG':
+            answer, images = it.answer_vgg(question, pil_image)
+        elif model == 'LightResNet':
+            answer, images = it.answer_res(question, pil_image)
+        else:
+            answer, images = it.answer(question, pil_image)
         image_paths = []
         for i, image in enumerate(images):
             image_paths.extend(
@@ -120,4 +126,4 @@ def interact(image=None, question=None, answers=None):
 if __name__ == '__main__':
     init()
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.run(host='0.0.0.0', port=6006)
+    app.run(debug=False, host='0.0.0.0', port=6006)
