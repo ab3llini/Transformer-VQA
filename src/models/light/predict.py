@@ -18,7 +18,6 @@ import nltk
 
 
 def predict(model, dataset, decode_fn, stop_word, max_len, device='cuda:0'):
-
     # Set the model in evaluation mode
     model.eval()
     model.to(device)
@@ -63,14 +62,15 @@ def predict(model, dataset, decode_fn, stop_word, max_len, device='cuda:0'):
 
             predictions[str(__id.item())] = answer
 
-            print('Done after {} => {}->{}'.format(its, __id, gpt2_tokenizer.decode(batch[0].squeeze(0).tolist())))
-            print('What was saved to the prediction out > {}'.format(predictions[str(__id.item())]))
-            print('After decode > {}'.format(gpt2_tokenizer.decode(predictions[str(__id.item())])))
-            print('After custom decode fn > {}'.format(decode_fn(predictions[str(__id.item())])))
+            # print('Done after {} => {}->{}'.format(its, __id, gpt2_tokenizer.decode(batch[0].squeeze(0).tolist())))
+            # print('What was saved to the prediction out > {}'.format(predictions[str(__id.item())]))
+            # print('After decode > {}'.format(gpt2_tokenizer.decode(predictions[str(__id.item())])))
+            # print('After custom decode fn > {}'.format(decode_fn(predictions[str(__id.item())])))
     if decode_fn:
         print('Decoding & NLTK encoding predictions with the provided tokenizer..')
         predictions = dict(map(lambda item: (item[0], decode_fn(item[1])), predictions.items()))
     return predictions
+
 
 def nltk_decode_light_fn(pred):
     try:
@@ -79,10 +79,12 @@ def nltk_decode_light_fn(pred):
         print('Exception while trying to decode {}.. Returning an empty string..'.format(pred))
         return ''
 
+
 if __name__ == '__main__':
     model = LightVggGpt2()
     model.load_state_dict(
-        torch.load(resources_path(os.path.join('models', 'light', 'vgg-gpt2', 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'))))
+        torch.load(resources_path(
+            os.path.join('models', 'light', 'vgg-gpt2', 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'))))
     dataset = LightDataset(resources_path(os.path.join('models', 'light', 'vgg-gpt2', 'data')), split='testing',
                            evaluating=True)
 
