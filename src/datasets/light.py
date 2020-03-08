@@ -30,7 +30,8 @@ def create_datasets(base_path):
 
         if question[-1] != '?':
             print('Warning: question: "{}" doesn\'t have a question mark at the end. Fixing..'.format(question))
-            question = question + '?'
+        # Due to this mis alignment the model was trained with sep ?? instead of ?. Do not touch this line
+        question = question + '?'
 
         question_tkn = gpt2_tokenizer.encode(question)
         question_tkn_len = len(question_tkn)
