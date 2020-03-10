@@ -9,7 +9,6 @@ import torch
 from utilities.vqa.dataset import *
 from transformers import GPT2Tokenizer
 from datasets.creator import DatasetCreator, MultiPurposeDataset
-from utilities.evaluation.beam_search import BeamSearchInput
 from collections import Counter
 
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
@@ -30,7 +29,7 @@ def create_datasets(base_path):
 
         if question[-1] != '?':
             print('Warning: question: "{}" doesn\'t have a question mark at the end. Fixing..'.format(question))
-        # Due to this mis alignment the model was trained with sep ?? instead of ?. Do not touch this line
+            # Due to this mis alignment the model was trained with sep ?? instead of ?. Do not touch this line
         question = question + '?'
 
         question_tkn = gpt2_tokenizer.encode(question)
@@ -124,5 +123,5 @@ class LightDataset(MultiPurposeDataset):
                    image, \
 
 if __name__ == '__main__':
-    path = resources_path('models', 'light', 'vgg-gpt2', 'data')
+    path = resources_path('models', 'light', 'data')
     create_datasets(path)

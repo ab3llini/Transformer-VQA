@@ -18,6 +18,7 @@ class Trainer:
                  lr,
                  batch_size,
                  epochs,
+                 early_stopping,
                  device,
                  num_workers,
                  checkpoint_path,
@@ -33,6 +34,7 @@ class Trainer:
         self.lr = lr
         self.batch_size = batch_size
         self.epochs = epochs
+        self.early_stopping = early_stopping
         self.device = device
         self.num_workers = num_workers
         self.checkpoint_path = checkpoint_path
@@ -40,6 +42,8 @@ class Trainer:
         self.log_interval = log_interval
 
         self.global_step = 0
+        self.last_test_loss = None
+        self.since_improvement = None
 
         wandb.init(**wandb_args)
 
@@ -155,7 +159,9 @@ class Trainer:
                 )
             )
 
-            self.__test(after_epoch=epoch)
+            stop = self.__test(after_epoch=epoch)
+            if stop:
+                break
 
     def __test(self, after_epoch):
         loader = DataLoader(
@@ -206,3 +212,20 @@ class Trainer:
                 'Testing loss',
                 time.time() - test_timer
             )
+
+            # Early stopping
+            if self.last_test_loss is None:
+                self.last_test_loss = test_loss
+                self.since_improvement = 0
+                return False
+            else:
+                if test_loss >= self.last_test_loss:
+                    if self.since_improvement == self.early_stopping:
+                        # No improvements for more than 3 epochs
+                        return True
+                    else:
+                        self.since_improvement += 1
+                        return False
+                else:
+                    self.last_test_loss = test_loss
+                    self.since_improvement = 0
