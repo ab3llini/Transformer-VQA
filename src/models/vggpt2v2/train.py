@@ -8,7 +8,7 @@ sys.path.append(root_path)
 from torch.optim import Adam
 from utilities.training.trainer import Trainer
 from utilities.paths import resources_path
-from datasets.light import LightDataset
+from datasets.vggpt2v2 import VGGPT2v2Dataset
 from modules.loss import LightLoss
 from models.vggpt2v2.model import VGGPTv2, gpt2_tokenizer
 import torch
@@ -19,8 +19,8 @@ def train(batch_size=20):
 
     loss = LightLoss(pad_token_id=gpt2_tokenizer._convert_token_to_id('-'))
     model = VGGPTv2()
-    tr_dataset = LightDataset(resources_path(os.path.join(basepath, 'data')))
-    ts_dataset = LightDataset(resources_path(os.path.join(basepath, 'data')), split='testing')
+    tr_dataset = VGGPT2v2Dataset(resources_path(os.path.join(basepath, 'data')))
+    ts_dataset = VGGPT2v2Dataset(resources_path(os.path.join(basepath, 'data')), split='testing')
 
     learning_rate = 5e-5
     epochs = 20

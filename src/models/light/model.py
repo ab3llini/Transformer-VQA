@@ -138,14 +138,14 @@ class LightVggGpt2Avg(ModularGpt2):
             # 2 model max
 
     def forward(self, sequence, image):
-        # (Batch size, 1, 1, 512)
-        maps = self.image_encoder(image).reshape(-1, 49, 512).max(dim=1).unsqueeze(2)
-        # (Batch size, 1, 1, 768)
-        maps = self.expansion(maps)
-        # (Batch size, sequence length, 1, 768)
+        # (Batch size, 512)
+        maps = self.image_encoder(image).reshape(-1, 49, 512).mean(dim=1)
+        # (Batch size, 1, 768)
+        maps = self.expansion(maps).unsqueeze(1)
+        # (Batch size, sequence length, 768)
         hiddens = self.gpt2(sequence)[0]
         # (Batch size, sequence length, 768)
-        combined = (maps + hiddens).squeeze(2)
+        combined = (maps + hiddens)
         # (Batch size, sequence length, voc_size)
         out = self.head(combined)
 
@@ -180,14 +180,14 @@ class LightVggGpt2Max(ModularGpt2):
             # 2 model max
 
     def forward(self, sequence, image):
-        # (Batch size, 1, 1, 512)
-        maps = self.image_encoder(image).reshape(-1, 49, 512).sum(dim=1).unsqueeze(2)
-        # (Batch size, 1, 1, 768)
-        maps = self.expansion(maps)
-        # (Batch size, sequence length, 1, 768)
+        # (Batch size, 512)
+        maps = self.image_encoder(image).reshape(-1, 49, 512).max(dim=1)[0]
+        # (Batch size, 1, 768)
+        maps = self.expansion(maps).unsqueeze(1)
+        # (Batch size, sequence length, 768)
         hiddens = self.gpt2(sequence)[0]
         # (Batch size, sequence length, 768)
-        combined = (maps + hiddens).squeeze(2)
+        combined = (maps + hiddens)
         # (Batch size, sequence length, voc_size)
         out = self.head(combined)
 

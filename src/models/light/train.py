@@ -27,7 +27,7 @@ def train(data, batch_size=124):
     batch_size = batch_size
 
     trainer = Trainer(
-        wandb_args={'project': 'light-models', 'name': data['name']},
+        wandb_args={'project': 'light-vgg-models', 'name': data['name']},
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=ts_dataset,
@@ -48,14 +48,17 @@ def train(data, batch_size=124):
 
 
 if __name__ == '__main__':
-    available = {'vgg-gpt2-avg': LightVggGpt2Avg(), 'vgg-gpt2-max': LightVggGpt2Max()}
+    available = {'vgg-gpt2-avg': LightVggGpt2Avg(), 'vgg-gpt2-sum': LightVggGpt2Max()}
 
     selected = input('Which model do you want to train? ({}): '.format(
-        str(['{}->{}'.format(i, m) for i, m in available.items()])))
+        str(['{}'.format(i) for i, _ in available.items()])))
 
     assert selected in available, 'Invalid selection'
 
     data = {'name': selected, 'model': available[selected]}
 
     batch_size = input('Batch size? [124]: ')
-    train(data, batch_size=int(batch_size)) if batch_size != '' else train(available[selected])
+    if batch_size != '':
+        train(data, batch_size=int(batch_size))
+    else:
+        train(data)

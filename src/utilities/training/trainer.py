@@ -77,7 +77,8 @@ class Trainer:
 
     def __log(self, epoch, it, its, loss, description, delta=0.0, wandb_log=True):
         print(
-            'Epoch: {}/{} | Iter: {}/{} | Loss: {}'.format(
+            '{} | Epoch: {}/{} | Iter: {}/{} | Loss: {}'.format(
+                description,
                 epoch + 1,
                 self.epochs,
                 it,
@@ -161,6 +162,7 @@ class Trainer:
 
             stop = self.__test(after_epoch=epoch)
             if stop:
+                print('Early stropping triggered!')
                 break
 
     def __test(self, after_epoch):
