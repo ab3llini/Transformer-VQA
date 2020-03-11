@@ -118,6 +118,7 @@ class LightVggGpt2Avg(ModularGpt2):
         self.image_encoder = VGGEncoder(models.vgg19(pretrained=True))
         # Linear expansion (from 512 to 768)
         self.expansion = nn.Linear(in_features=512, out_features=768)
+        self.expansion.weight.data = torch.zeros(self.expansion.weight.size())
 
         # Disable weight update for both VGG and GPT-2
         for p in self.image_encoder.parameters():
@@ -129,7 +130,7 @@ class LightVggGpt2Avg(ModularGpt2):
         for p in self.expansion.parameters():
             p.requires_grad = True
         for p in self.head.parameters():
-            p.requires_grad = True
+            p.requires_grad = False
 
             # 1 implement E S valdation loss
             # max limit # epochs to 100
@@ -160,6 +161,7 @@ class LightVggGpt2Max(ModularGpt2):
         self.image_encoder = VGGEncoder(models.vgg19(pretrained=True))
         # Linear expansion (from 512 to 768)
         self.expansion = nn.Linear(in_features=512, out_features=768)
+        self.expansion.weight.data = torch.zeros(self.expansion.weight.size())
 
         # Disable weight update for both VGG and GPT-2
         for p in self.image_encoder.parameters():
@@ -171,7 +173,7 @@ class LightVggGpt2Max(ModularGpt2):
         for p in self.expansion.parameters():
             p.requires_grad = True
         for p in self.head.parameters():
-            p.requires_grad = True
+            p.requires_grad = False
 
             # 1 implement E S valdation loss
             # max limit # epochs to 100
