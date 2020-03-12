@@ -48,7 +48,7 @@ def train(data, batch_size=124):
 
 
 if __name__ == '__main__':
-    available = {'vgg-gpt2-avg-zeroes-fix-head': LightVggGpt2Avg(), 'vgg-gpt2-max-zeroes-fix-head': LightVggGpt2Max()}
+    available = {'vgg-gpt2-avg-fix-head': LightVggGpt2Avg(), 'vgg-gpt2-max-fix-head': LightVggGpt2Max()}
 
     selected = input('Which model do you want to train? ({}): '.format(
         str(['{}'.format(i) for i, _ in available.items()])))
