@@ -1,4 +1,4 @@
-import sys
+import sys, inspect
 import os
 
 this_path = os.path.dirname(os.path.realpath(__file__))
@@ -10,7 +10,7 @@ from utilities.training.trainer import Trainer
 from utilities.paths import resources_path
 from datasets.light import LightDataset
 from modules.loss import LightLoss
-from models.light.model import LightVggGpt2Avg, LightVggGpt2Max, gpt2_tokenizer
+from models.light.model import LightVggGpt2AvgConcat, gpt2_tokenizer
 import torch
 
 
@@ -47,8 +47,15 @@ def train(data, batch_size=124):
     trainer.run()
 
 
+
 if __name__ == '__main__':
-    available = {'vgg-gpt2-avg-fix-head': LightVggGpt2Avg(), 'vgg-gpt2-max-fix-head': LightVggGpt2Max()}
+
+    def print_classes():
+        for name, obj in inspect.getmembers(sys.modules[__name__]):
+            if inspect.isclass(obj):
+                print(obj)
+
+    available = {'vgg-gpt2-avg-concat': LightVggGpt2AvgConcat()}
 
     selected = input('Which model do you want to train? ({}): '.format(
         str(['{}'.format(i) for i, _ in available.items()])))

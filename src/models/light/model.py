@@ -175,12 +175,6 @@ class LightVggGpt2Max(ModularGpt2):
         for p in self.head.parameters():
             p.requires_grad = False
 
-            # 1 implement E S valdation loss
-            # max limit # epochs to 100
-            # train cuncurr 2 model with vgg
-            # 1 model avg
-            # 2 model max
-
     def forward(self, sequence, image):
         # (Batch size, 512)
         maps = self.image_encoder(image).reshape(-1, 49, 512).max(dim=1)[0]
@@ -196,8 +190,62 @@ class LightVggGpt2Max(ModularGpt2):
         return out
 
 
+class LightVggGpt2AvgConcat(ModularGpt2):
+    def __init__(self):
+        super(LightVggGpt2AvgConcat, self).__init__()
+
+        # Image encoder
+        self.image_encoder = VGGEncoder(models.vgg19(pretrained=True))
+        # Linear expansion (from 512 to 768)
+        self.expansion = nn.Linear(in_features=512, out_features=768)
+        self.classifier = nn.Linear(in_features=768 * 2, out_features=len(gpt2_tokenizer))
+
+        # Copy the original weights and concat the new ones for the attention
+        with torch.no_grad():
+            self.classifier.weight.copy_(
+                torch.cat(
+                    [
+                        self.head.weight,
+                        torch.zeros(self.head.weight.size())
+                    ],
+                    dim=1
+                )
+            )
+
+        del self.head
+
+        # Disable weight update for both VGG and GPT-2
+        for p in self.image_encoder.parameters():
+            p.requires_grad = False
+        for p in self.gpt2.parameters():
+            p.requires_grad = False
+
+        # Enable weight updates for GPT-2 head and expander
+        for p in self.expansion.parameters():
+            p.requires_grad = True
+        for p in self.classifier.parameters():
+            p.requires_grad = True
+
+    def forward(self, sequence, image):
+        # (Batch size, 512)
+        maps = self.image_encoder(image).reshape(-1, 49, 512).max(dim=1)[0]
+        # (Batch size, 1, 768)
+        maps = self.expansion(maps).unsqueeze(1)
+        # (Batch size, sequence length, 768)
+        hiddens = self.gpt2(sequence)[0]
+        # (Batch size, sequence length, 768)
+        concat = torch.cat([hiddens, maps], dim=2)
+        # (Batch size, sequence length, voc_size)
+        out = self.classifier(concat)
+
+        return out
+
+
 if __name__ == '__main__':
+    """
     LightResGpt2().show_params()
     LightVggGpt2().show_params()
     LightVggGpt2Avg().show_params()
     LightVggGpt2Max().show_params()
+    """
+    LightVggGpt2AvgConcat().show_params()
