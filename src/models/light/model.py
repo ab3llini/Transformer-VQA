@@ -229,10 +229,10 @@ class LightVggGpt2AvgConcat(ModularGpt2):
     def forward(self, sequence, image):
         # (Batch size, 512)
         maps = self.image_encoder(image).reshape(-1, 49, 512).max(dim=1)[0]
-        # (Batch size, 1, 768)
-        maps = self.expansion(maps).unsqueeze(1)
         # (Batch size, sequence length, 768)
         hiddens = self.gpt2(sequence)[0]
+        # (Batch size, sequence length, 768)
+        maps = self.expansion(maps).unsqueeze(1).expand(-1, hiddens.shape[1], -1)
         # (Batch size, sequence length, 768)
         concat = torch.cat([hiddens, maps], dim=2)
         # (Batch size, sequence length, voc_size)
