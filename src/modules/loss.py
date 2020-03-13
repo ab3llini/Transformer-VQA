@@ -31,9 +31,11 @@ class LightLoss(GPT2Loss):
             self.extract = extract
 
     def forward(self, output, labels):
-        print(output.shape)
         if self.extract:
             output = output[self.extract]
+
+        print(output.shape)
+
         # Compute the actual loss
         return super(LightLoss, self).forward(output, labels[0])
 
