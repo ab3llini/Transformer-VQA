@@ -31,7 +31,7 @@ def train(batch_size=20):
 
 
     trainer = Trainer(
-        wandb_args={'project': 'vggpt2v2', 'name': 'vggpt2v2'},
+        wandb_args={'project': 'light-models', 'name': 'vggpt2v2'},
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=ts_dataset,
