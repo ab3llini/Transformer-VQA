@@ -11,20 +11,24 @@ from utilities.paths import resources_path
 from datasets.vggpt2v2 import VGGPT2v2Dataset
 from modules.loss import LightLoss
 from models.vggpt2v2.model import VGGPTv2, gpt2_tokenizer
-import torch
 
 
 def train(batch_size=20):
     basepath = os.path.join('models', 'vggpt2v2')
 
-    loss = LightLoss(pad_token_id=gpt2_tokenizer._convert_token_to_id('-'))
+    loss = LightLoss(
+        pad_token_id=gpt2_tokenizer._convert_token_to_id('-'),
+        extract=0
+    )
     model = VGGPTv2()
     tr_dataset = VGGPT2v2Dataset(resources_path(os.path.join(basepath, 'data')))
     ts_dataset = VGGPT2v2Dataset(resources_path(os.path.join(basepath, 'data')), split='testing')
 
     learning_rate = 5e-5
-    epochs = 20
+    epochs = 200
     batch_size = batch_size
+    early_stopping = 5
+
 
     trainer = Trainer(
         wandb_args={'project': 'vggpt2v2', 'name': 'vggpt2v2'},
@@ -34,6 +38,7 @@ def train(batch_size=20):
         optimizer=Adam(model.parameters(), lr=learning_rate),
         loss=loss,
         epochs=epochs,
+        early_stopping=early_stopping,
         num_workers=4,
         checkpoint_path=resources_path(basepath, 'checkpoints', 'latest'),
         device='cuda',

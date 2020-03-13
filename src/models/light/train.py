@@ -27,7 +27,7 @@ def train(data, batch_size=124):
     batch_size = batch_size
 
     trainer = Trainer(
-        wandb_args={'project': 'light-vgg-models', 'name': data['name']},
+        wandb_args={'project': 'light-models', 'name': data['name']},
         model=model,
         tr_dataset=tr_dataset,
         ts_dataset=ts_dataset,

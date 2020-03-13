@@ -24,10 +24,16 @@ class GPT2Loss(CrossEntropyLoss):
 
 
 class LightLoss(GPT2Loss):
-    def __init__(self, pad_token_id):
+    def __init__(self, pad_token_id, extract=None):
         super(LightLoss, self).__init__(pad_token_id=pad_token_id)
+        if extract is not None:
+            assert type(extract) == int, 'Extract value MUST be integer'
+            self.extract = extract
 
     def forward(self, output, labels):
+        if self.extract:
+            output = output[self.extract]
+            labels = labels[self.extract]
         # Compute the actual loss
         return super(LightLoss, self).forward(output, labels[0])
 

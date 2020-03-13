@@ -56,6 +56,8 @@ class VGGPTv2(ModularGpt2):
                 )
             )
 
+        del self.head
+
         # Disable weight update for both VGG and GPT-2
         for p in self.image_encoder.parameters():
             p.requires_grad = False
