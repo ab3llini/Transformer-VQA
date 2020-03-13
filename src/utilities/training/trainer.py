@@ -152,7 +152,8 @@ class Trainer:
                 self.model.state_dict(),
                 os.path.join(
                     self.checkpoint_path,
-                    'B_{}_LR_{}_CHKP_EPOCH_{}.pth'.format(
+                    '{}_bs={}_lr={}_e={}.pth'.format(
+                        type(self.model).__name__,
                         self.batch_size,
                         self.lr,
                         epoch
