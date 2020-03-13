@@ -31,10 +31,8 @@ class LightLoss(GPT2Loss):
             self.extract = extract
 
     def forward(self, output, labels):
-        if self.extract:
+        if self.extract is not None:
             output = output[self.extract]
-
-        print(output.shape)
 
         # Compute the actual loss
         return super(LightLoss, self).forward(output, labels[0])
