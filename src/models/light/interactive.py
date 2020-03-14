@@ -71,10 +71,10 @@ def answer(question, image):
 
     # Resize and convert image to tensor
     torch.manual_seed(0)
-    resized_image = resize_image(i)
+    resized_image = resize_image(image)
     tensor_image = normalized_tensor_image(resized_image).cuda().unsqueeze(0)
 
-    question_tkn = gpt2_tokenizer.encode(q)
+    question_tkn = gpt2_tokenizer.encode(question)
     tensor_question = torch.tensor(question_tkn).long().cuda().unsqueeze(0)
 
     # Predict

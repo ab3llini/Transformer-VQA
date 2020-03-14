@@ -44,13 +44,9 @@ def get_session_images():
 def get_answers_and_images(question, image_path):
     pil_image = utils.load_image(image_path)
     output = {}
-    for model, it in zip(['VQABaseline', 'VGGPT-2', 'LightVGG', 'LightResNet'], [vqa_it, vggpt2_it, light_it, light_it]):
-        if model == 'LightVGG':
-            answer, images = it.answer_vgg(question, pil_image)
-        elif model == 'LightResNet':
-            answer, images = it.answer_res(question, pil_image)
-        else:
-            answer, images = it.answer(question, pil_image)
+    for model, it in zip(['VQABaseline', 'VGGPT-2', 'LightVGG-AVG+SUM'], [vqa_it, vggpt2_it, light_it]):
+
+        answer, images = it.answer(question, pil_image)
         image_paths = []
         for i, image in enumerate(images):
             image_paths.extend(
