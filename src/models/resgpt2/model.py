@@ -31,6 +31,7 @@ class ResGPT2(nn.Module):
         self.att = LightAttention(self.map_dim, self.hidden_dim)
         self.classifier = gpt2_linear
 
+
         self.set_train_on()
 
     def set_train_on(self, value=True):
@@ -57,6 +58,8 @@ class ResGPT2(nn.Module):
 
         # self.show_params()
 
+        return self
+
     def show_params(self):
         for name, param in self.named_parameters():
             if param.requires_grad:
@@ -64,10 +67,14 @@ class ResGPT2(nn.Module):
             else:
                 print('Trainable : FALSE ->', name)
 
-        print('Model parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
+        print('Trainable parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
+        print('Total parameters: {}'.format(sum(p.numel() for p in self.parameters())))
 
     def forward(self, sequence, image):
         resnet_maps = self.resnet(image)
         gpt2_hiddens = self.gpt2(sequence)[0]
         out, pixel_softmax_out = self.att(resnet_maps, gpt2_hiddens)
         return self.classifier(out), pixel_softmax_out
+
+if __name__ == '__main__':
+    ResGPT2().set_train_on(value=True).show_params()

@@ -84,7 +84,8 @@ class VGGPT2(nn.Module):
             else:
                 print('Trainable : FALSE ->', name)
 
-        print('Model parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
+        print('Trainable parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
+        print('Total parameters: {}'.format(sum(p.numel() for p in self.parameters())))
 
     def forward(self, sequence, image):
         vgg_maps = self.vgg11(image)
@@ -92,3 +93,6 @@ class VGGPT2(nn.Module):
         co_att_out, pixel_softmax_out = self.co_att(vgg_maps, gpt2_hiddens)
         concat = torch.cat([gpt2_hiddens, co_att_out], dim=2)
         return self.classifier(concat), pixel_softmax_out
+
+if __name__ == '__main__':
+    VGGPT2().show_params()

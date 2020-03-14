@@ -22,7 +22,8 @@ class Trainer:
                  device,
                  num_workers,
                  checkpoint_path,
-                 shuffle,
+                 load_checkpoint=False,
+                 shuffle=True,
                  log_interval=100
                  ):
 
@@ -38,6 +39,7 @@ class Trainer:
         self.device = device
         self.num_workers = num_workers
         self.checkpoint_path = checkpoint_path
+        self.load_checkpoint = load_checkpoint
         self.shuffle = shuffle
         self.log_interval = log_interval
 
@@ -73,6 +75,10 @@ class Trainer:
 
         self.model.to(self.device)
         self.model.zero_grad()
+
+        if self.load_checkpoint:
+            self.model.load_state_dict(torch.load(self.load_checkpoint))
+
         self.__train()
 
     def __log(self, epoch, it, its, loss, description, delta=0.0, wandb_log=True):
@@ -217,18 +223,19 @@ class Trainer:
             )
 
             # Early stopping
-            if self.last_test_loss is None:
-                self.last_test_loss = test_loss
-                self.since_improvement = 0
-                return False
-            else:
-                if test_loss >= self.last_test_loss:
-                    if self.since_improvement == self.early_stopping:
-                        # No improvements for more than 3 epochs
-                        return True
-                    else:
-                        self.since_improvement += 1
-                        return False
-                else:
+            if self.early_stopping is not None and self.early_stopping:
+                if self.last_test_loss is None:
                     self.last_test_loss = test_loss
                     self.since_improvement = 0
+                    return False
+                else:
+                    if test_loss >= self.last_test_loss:
+                        if self.since_improvement == self.early_stopping:
+                            # No improvements for more than 3 epochs
+                            return True
+                        else:
+                            self.since_improvement += 1
+                            return False
+                    else:
+                        self.last_test_loss = test_loss
+                        self.since_improvement = 0

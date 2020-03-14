@@ -25,10 +25,10 @@ def train(batch_size=20):
     ts_dataset = VGGPT2v2Dataset(resources_path(os.path.join(basepath, 'data')), split='testing')
 
     learning_rate = 5e-5
-    epochs = 200
+    epochs = 23
     batch_size = batch_size
-    early_stopping = 5
-
+    early_stopping = None
+    checkpoint = resources_path(basepath, 'checkpoints', 'latest', 'VGGPTv2_bs=150_lr=5e-05_e=7.pth')
 
     trainer = Trainer(
         wandb_args={'project': 'light-models', 'name': 'vggpt2v2'},
@@ -41,6 +41,7 @@ def train(batch_size=20):
         early_stopping=early_stopping,
         num_workers=4,
         checkpoint_path=resources_path(basepath, 'checkpoints', 'latest'),
+        load_checkpoint=checkpoint,
         device='cuda',
         shuffle=True,
         log_interval=10,
