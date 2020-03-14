@@ -52,12 +52,12 @@ def init_singletons():
         model.load_state_dict(checkpoint['weights'])
 
         resnet = ResNet()
-        resnet.to('cuda').eval()
+        resnet.to('cuda:1').eval()
 
         init = True
 
 
-def answer(question, image):
+def answer(question, image, args=None):
     global checkpoint
     global vocab
     global answer_map
@@ -68,15 +68,15 @@ def answer(question, image):
 
     # Prepare PIL image to be encoded by ResNet
     resized_image = utils.resize_image(image, config.image_size)
-    tensor_image = utils.normalized_tensor_image(resized_image).unsqueeze(0).to('cuda')
+    tensor_image = utils.normalized_tensor_image(resized_image).unsqueeze(0).to('cuda:1')
     # Encode the image
     v = resnet(tensor_image)
 
     # Encode the question
     tokenized_q = question.lower()[:-1].split(' ')
     encoded_q = [vocab['question'].get(token, 0) for token in tokenized_q]
-    q = torch.tensor(encoded_q).long().unsqueeze(0).to('cuda')
-    q_len = torch.tensor(len(tokenized_q)).long().unsqueeze(0).to('cuda')
+    q = torch.tensor(encoded_q).long().unsqueeze(0).to('cuda:1')
+    q_len = torch.tensor(len(tokenized_q)).long().unsqueeze(0).to('cuda:1')
 
     # Get probabilities
     proba = model(v, q, q_len).squeeze(0)

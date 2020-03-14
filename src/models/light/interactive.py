@@ -10,63 +10,98 @@ from utilities import paths
 from utilities.visualization.softmap import *
 from utilities.evaluation.evaluate import *
 from utilities.evaluation.beam_search import *
-from models.light.model import LightVggGpt2Avg, LightResGpt2
+from models.light.model import *
 from models.light.model import gpt2_tokenizer as light_tokenizer
 
 init = False
-checkpoint, model = None, None
+
+targets = {
+    'res-gpt2': {
+        'class': LightResGpt2,
+        'checkpoint': 'B_100_LR_5e-05_CHKP_EPOCH_19.pth'
+    },
+    'vgg-gpt2': {
+        'class': LightVggGpt2,
+        'checkpoint': 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'
+    },
+    'vgg-gpt2-avg-concat': {
+        'class': LightVggGpt2AvgConcat,
+        'checkpoint': 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'
+    },
+    'vgg-gpt2-avg': {
+        'class': LightVggGpt2Avg,
+        'checkpoint': 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'
+    },
+    'vgg-gpt2-avg-fix-head': {
+        'class': LightVggGpt2Avg,
+        'checkpoint': 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'
+    },
+    'vgg-gpt2-max': {
+        'class': LightVggGpt2Max,
+        'checkpoint': 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'
+    },
+    'vgg-gpt2-max-fix-head': {
+        'class': LightVggGpt2Max,
+        'checkpoint': 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'
+    }
+}
 
 
-def init_singletons():
+def init_singletons(dev='cuda:1'):
     global init
     if not init:
-        global checkpoint
-        global model
+        global targets
 
-        model_path = paths.resources_path('models', 'light', 'vgg-gpt2-avg')
-        # res_path = paths.resources_path('models', 'light', 'res-gpt2')
-        checkpoint = torch.load(os.path.join(model_path, 'checkpoints', 'latest', 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'),
-                                map_location='cuda:0')
+        for target, data in targets.items():
+            model_path = paths.resources_path('models', 'light', target)
+            checkpoint = torch.load(
+                os.path.join(model_path, 'checkpoints', 'latest', data['checkpoint']),
+                map_location=dev)
+            targets[target]['instance'] = data['class']()
+            targets[target]['instance'].to(dev)
+            targets[target]['instance'].load_state_dict(checkpoint)
 
-        model = LightVggGpt2Avg()
-        model.cuda()
-        model.load_state_dict(checkpoint)
         init = True
 
 
 def predict(question, image, stop_word, max_len, device='cuda:0'):
-    global model
-    # Set the model in evaluation mode
-    model.eval()
-    model.to(device)
+    global targets
 
-    with torch.no_grad():
+    all_answers = {}
 
-        answer = []
-        question = question.to(device)
-        stop_condition = False
-        its = 0
+    for target, data in targets.items():
+        # Set the model in evaluation mode
+        data['instance'].eval()
+        data['instance'].to(device)
 
-        while not stop_condition:
-            out = model(question, image)
-            # Get predicted words in this beam batch
-            pred = torch.argmax(out[0, -1, :])
+        with torch.no_grad():
 
-            eos = (pred.item() in stop_word)
-            its += 1
+            answer = []
+            question = question.to(device)
+            stop_condition = False
+            its = 0
 
-            stop_condition = eos or its > max_len
+            while not stop_condition:
+                out = data['instance'](question, image)
+                # Get predicted words in this beam batch
+                pred = torch.argmax(out[0, -1, :])
+
+                eos = (pred.item() in stop_word)
+                its += 1
+
+                stop_condition = eos or its > max_len
+
+                # Append the predicted token to the question
+                question = torch.cat([question, pred.unsqueeze(0).unsqueeze(0)], dim=1)
+                # Append the predicted token to the answer
+                answer.append(pred.item())
+
+            all_answers[target] = {'answer': light_tokenizer.decode(answer)}
+
+    return all_answers
 
 
-            # Append the predicted token to the question
-            question = torch.cat([question, pred.unsqueeze(0).unsqueeze(0)], dim=1)
-            # Append the predicted token to the answer
-            answer.append(pred.item())
-
-        return light_tokenizer.decode(answer)
-
-
-def answer(question, image):
+def answer(question, image, args=None):
     init_singletons()
 
     # Resize and convert image to tensor
@@ -78,12 +113,16 @@ def answer(question, image):
     tensor_question = torch.tensor(question_tkn).long().cuda().unsqueeze(0)
 
     # Predict
-    return predict(tensor_question, tensor_image, [light_tokenizer.eos_token_id], 20), [resized_image]
+    out = predict(tensor_question, tensor_image, [light_tokenizer.eos_token_id], 20)
+    for m, _ in out.items():
+        out[m]['images'] = [resized_image]
+
+    return out
 
 
 if __name__ == '__main__':
     with open(paths.resources_path('tmp', 'image.png'), 'rb') as fp:
         img = Image.open(fp)
         q = 'What do you see?'
-        ans, _, = answer(q, img)
+        ans, _, = answer(q, img, args=None)
         print(ans)

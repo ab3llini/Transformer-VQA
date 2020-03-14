@@ -44,16 +44,24 @@ def get_session_images():
 def get_answers_and_images(question, image_path):
     pil_image = utils.load_image(image_path)
     output = {}
-    for model, it in zip(['VQABaseline', 'VGGPT-2', 'LightVGG-AVG+SUM'], [vqa_it, vggpt2_it, light_it]):
+    for model, it in zip(['VQABaseline', 'VGGPT-2', None], [vqa_it, vggpt2_it, light_it]):
+        def add_output(model_name, a, ims):
+            image_paths = []
+            for i, image in enumerate(ims):
+                image_paths.extend(
+                    utils.cache_session_images(
+                        {'{}.png'.format(get_md5_digest(model_name + str(i) + question + image_path)): image},
+                        get_session()))
+                output[model_name] = {'answer': a, 'images': image_paths}
 
-        answer, images = it.answer(question, pil_image)
-        image_paths = []
-        for i, image in enumerate(images):
-            image_paths.extend(
-                utils.cache_session_images(
-                    {'{}.png'.format(get_md5_digest(model + str(i) + question + image_path)): image},
-                    get_session()))
-            output[model] = {'answer': answer, 'images': image_paths}
+        if model is None:
+            outputs = it.answer(question, pil_image)
+            for model_n, o in outputs.items():
+                add_output(model_n, o['answer'], o['images'])
+
+        else:
+            answer, images = it.answer(question, pil_image)
+            add_output(model, answer, images)
 
     return output
 

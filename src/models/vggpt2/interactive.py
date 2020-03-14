@@ -24,7 +24,7 @@ def rm_eos_token(a):
     return a
 
 
-def do_beam_search(__model, question, image, beam_search_input, device='cuda', beam_size=1, maxlen=20):
+def do_beam_search(__model, question, image, beam_search_input, device='cuda:1', beam_size=1, maxlen=20):
     cs, rs, cs_out, rs_out = beam_search_with_softmaps(__model, beam_search_input, len(gpt2_tokenizer), beam_size,
                                                        gpt2_tokenizer.eos_token_id, maxlen, device=device)
 
@@ -46,13 +46,13 @@ def init_singletons():
         checkpoint = torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'))
 
         model = VGGPT2()
-        model.cuda().set_train_on(False)
+        model.to('cuda:1').set_train_on(False)
         model.load_state_dict(checkpoint)
 
         init = True
 
 
-def answer(question, image):
+def answer(question, image, args=None):
     global model
 
     init_singletons()
@@ -60,12 +60,12 @@ def answer(question, image):
     # Resize and convert image to tensor
     torch.manual_seed(0)
     resized_image = resize_image(image)
-    tensor_image = normalized_tensor_image(resized_image).cuda()
+    tensor_image = normalized_tensor_image(resized_image).to('cuda:1')
 
     # Encode question
     question_tkn = gpt2_tokenizer.encode(question)
     question_tkn = [gpt2_tokenizer.bos_token_id] + question_tkn + [gpt2_tokenizer.sep_token_id]
-    tensor_question = torch.tensor(question_tkn).long().cuda()
+    tensor_question = torch.tensor(question_tkn).long().to('cuda:1')
 
     # Prepare Beam search input
     beam_input = BeamSearchInput(0, 0, tensor_question, tensor_image)
