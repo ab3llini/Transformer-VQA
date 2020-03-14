@@ -41,7 +41,7 @@ def init_singletons():
         torch.manual_seed(0)
 
         model = Net(len(vocab['question']) + 1)
-        model.cuda().eval()
+        model.to('cuda:1').eval()
 
         checkpoint_weight_keys = list(checkpoint['weights'].keys())
         model_weight_keys = list(model.state_dict().keys())
