@@ -24,7 +24,7 @@ def rm_eos_token(a):
     return a
 
 
-def do_beam_search(__model, question, image, beam_search_input, device='cudaz', beam_size=1, maxlen=20):
+def do_beam_search(__model, question, image, beam_search_input, device='cuda', beam_size=1, maxlen=20):
     cs, rs, cs_out, rs_out = beam_search_with_softmaps(__model, beam_search_input, len(gpt2_tokenizer), beam_size,
                                                        gpt2_tokenizer.eos_token_id, maxlen, device=device)
 
@@ -71,7 +71,7 @@ def answer(question, image, args=None):
     beam_input = BeamSearchInput(0, 0, tensor_question, tensor_image)
 
     # Predict
-    ans, softmaps = do_beam_search(model, tensor_question, resized_image, beam_input)
+    ans, softmaps = do_beam_search(model, tensor_question, resized_image, beam_input, device='cuda:1')
 
     return ans, [resized_image, softmaps]
 
