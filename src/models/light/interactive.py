@@ -47,7 +47,7 @@ targets = {
 }
 
 
-def init_singletons(dev='cuda:1'):
+def init_singletons(dev='cuda:0'):
     global init
     if not init:
         global targets
