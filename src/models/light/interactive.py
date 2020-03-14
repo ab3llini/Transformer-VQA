@@ -35,14 +35,6 @@ targets = {
     'vgg-gpt2-avg-fix-head': {
         'class': LightVggGpt2Avg,
         'checkpoint': 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'
-    },
-    'vgg-gpt2-max': {
-        'class': LightVggGpt2Max,
-        'checkpoint': 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'
-    },
-    'vgg-gpt2-max-fix-head': {
-        'class': LightVggGpt2Max,
-        'checkpoint': 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'
     }
 }
 
@@ -53,6 +45,7 @@ def init_singletons(dev='cuda:0'):
         global targets
 
         for target, data in targets.items():
+            print(f'Initializing {target}')
             model_path = paths.resources_path('models', 'light', target)
             checkpoint = torch.load(
                 os.path.join(model_path, 'checkpoints', 'latest', data['checkpoint']),
