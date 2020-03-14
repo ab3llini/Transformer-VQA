@@ -57,11 +57,11 @@ def predict(question, image, stop_word, max_len, device='cuda:0'):
 
             stop_condition = eos or its > max_len
 
-            if not eos:
-                # Append the predicted token to the question
-                question = torch.cat([question, pred.unsqueeze(0).unsqueeze(0)], dim=1)
-                # Append the predicted token to the answer
-                answer.append(pred.item())
+
+            # Append the predicted token to the question
+            question = torch.cat([question, pred.unsqueeze(0).unsqueeze(0)], dim=1)
+            # Append the predicted token to the answer
+            answer.append(pred.item())
 
         return light_tokenizer.decode(answer)
 
