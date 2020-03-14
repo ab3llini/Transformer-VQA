@@ -34,7 +34,7 @@ targets = {
     },
     'vgg-gpt2-avg-fix-head': {
         'class': LightVggGpt2Avg,
-        'checkpoint': 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'
+        'checkpoint': 'B_124_LR_0.0005_CHKP_EPOCH_2.pth'
     }
 }
 
