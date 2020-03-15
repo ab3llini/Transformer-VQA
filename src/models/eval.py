@@ -657,7 +657,7 @@ if __name__ == '__main__':
             data=data,
             beam_size=1,
             limit=20,
-            skip=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'VGG Linear+AVG', 'ResNet Linear+AVG'],
+            skip=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2', 'VGG Linear+AVG', 'ResNet Linear+AVG'],
             destination=prediction_dest
         )
     if gen_results:
