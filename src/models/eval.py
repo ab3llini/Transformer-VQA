@@ -644,7 +644,7 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = False
+    gen_preds = True
     gen_results = True
     gen_plots = True
     prediction_dest = 'predictions'
