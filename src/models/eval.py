@@ -222,7 +222,7 @@ def prepare_data(split='testing', skip=None):
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
             'model': load_model(LightVggGpt2Avg,
-                                os.path.join(light_path, 'vgg-gpt2-avg-fix-head'), 'B_100_LR_5e-05_CHKP_EPOCH_19.pth'),
+                                os.path.join(light_path, 'vgg-gpt2-avg-fix-head'), 'B_100_LR_0.0005_CHKP_EPOCH_2.pth'),
             'predict_fn': light_predict_fn
         },
         'VGG MAX+Linear+FixHead': {
@@ -231,22 +231,22 @@ def prepare_data(split='testing', skip=None):
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
             'model': load_model(LightVggGpt2Max,
-                                os.path.join(light_path, 'vgg-gpt2-max-fix-head'), 'B_100_LR_5e-05_CHKP_EPOCH_19.pth'),
+                                os.path.join(light_path, 'vgg-gpt2-max-fix-head'), 'B_100_LR_0.0005_CHKP_EPOCH_4.pth'),
             'predict_fn': light_predict_fn
         },
-        'VGG AVG+Linear+Concat': {
+        'VGG MAX+Linear+Concat': {
             'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
             'model': load_model(LightVggGpt2AvgConcat,
-                                os.path.join(light_path, 'vgg-gpt2-avg-concat'), 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'),
+                                os.path.join(light_path, 'vgg-gpt2-max-concat'), 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'),
             'predict_fn': light_predict_fn
         }
     }
 
     """,
-    'VGG MAX+Linear+Concat': {
+    'VGG AVG+Linear+Concat': {
         'dataset': light_dataset_ts,
         'vocab_size': len(light_tokenizer),
         'decode_fn': nltk_decode_light_fn,
