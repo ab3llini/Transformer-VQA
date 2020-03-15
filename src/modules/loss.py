@@ -28,7 +28,8 @@ class LightLoss(GPT2Loss):
         super(LightLoss, self).__init__(pad_token_id=pad_token_id)
         if extract is not None:
             assert type(extract) == int, 'Extract value MUST be integer'
-            self.extract = extract
+
+        self.extract = extract
 
     def forward(self, output, labels):
         if self.extract is not None:
