@@ -82,13 +82,13 @@ if __name__ == '__main__':
         },
         'light': {
             'data': [
-                light.LightDataset(location=os.path.join(light_path, 'vgg-gpt2', 'data')).data,
-                light.LightDataset(location=os.path.join(light_path,'vgg-gpt2', 'data'), split='testing').data
+                light.LightDataset(location=os.path.join(light_path, 'data')).data,
+                light.LightDataset(location=os.path.join(light_path, 'data'), split='testing').data
             ],
             'seq_idx': [1, 1],
             'img_idx': [2, 3],
             'has_ans': [True, False],
-            'sep': light_tokenizer._convert_token_to_id('??'),
+            'sep': light_tokenizer._convert_token_to_id('?'),
             'pad': light_tokenizer._convert_token_to_id('-')
         }
     }

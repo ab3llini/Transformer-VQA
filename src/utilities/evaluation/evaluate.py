@@ -51,7 +51,7 @@ def compute_corpus_bleu(predictions, references, bleu=1):
 
 
 def generate_predictions(model, dataset: MultiPurposeDataset, decode_fn, vocab_size, beam_size, stop_word, max_len,
-                         device='cuda'):
+                         device='cuda:1'):
     # Set the model in evaluation mode
     model.eval()
     model.to(device)

@@ -17,7 +17,7 @@ from tqdm import tqdm
 import nltk
 
 
-def predict(model, dataset, decode_fn, stop_word, max_len, device='cuda:0'):
+def predict(model, dataset, decode_fn, stop_word, max_len, device='cuda:1'):
     # Set the model in evaluation mode
     model.eval()
     model.to(device)

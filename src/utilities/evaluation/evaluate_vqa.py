@@ -69,6 +69,12 @@ def convert_to_vqa():
     print(predictions)
 
     for p in predictions:
+        check = p.split('_')
+        if check and len(check) > 0:
+            if check[0] == 'vqa':
+                if len(check) > 1:
+                    if check[1] == 'ready':
+                        continue
         model_pred = os.path.join(path, p)
         with open(model_pred, 'r') as fp:
             p_data = json.load(fp)

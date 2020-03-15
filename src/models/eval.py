@@ -19,7 +19,7 @@ import models.vggpt2.model as modelling_vggpt2
 import models.resgpt2.model as modelling_resgpt2
 
 from models.light.predict import predict as light_predict_fn
-from models.light.model import LightVggGpt2, LightResGpt2
+from models.light.model import *
 from models.light.model import gpt2_tokenizer as light_tokenizer
 
 from transformers import GPT2LMHeadModel, BertForMaskedLM
@@ -63,6 +63,12 @@ def nltk_decode_bert_fn(pred):
         return ''
 
 
+def load_model(class_name, base, checkpoint):
+    m = class_name()
+    m.load_state_dict(torch.load(os.path.join(base, 'checkpoints', 'latest', checkpoint)))
+    return m
+
+
 def prepare_data(split='testing', skip=None):
     baseline_path = paths.resources_path('models', 'baseline')
     vggpt2_path = paths.resources_path('models', 'vggpt2')
@@ -89,7 +95,7 @@ def prepare_data(split='testing', skip=None):
                                                 split=split,
                                                 evaluating=True)
 
-    light_dataset_ts = light.LightDataset(location=(os.path.join(light_path, 'vgg-gpt2', 'data')),
+    light_dataset_ts = light.LightDataset(location=(os.path.join(light_path, 'data')),
                                           split=split,
                                           evaluating=True)
 
@@ -107,8 +113,6 @@ def prepare_data(split='testing', skip=None):
     bert_model = BertForMaskedLM.from_pretrained('bert-base-uncased')
     vggpt2_model = modelling_vggpt2.VGGPT2()
     resgpt2_model = modelling_resgpt2.ResGPT2()
-    light_vgg_model = LightVggGpt2()
-    light_res_model = LightResGpt2()
 
     captioning_model.load_state_dict(
         torch.load(
@@ -129,14 +133,6 @@ def prepare_data(split='testing', skip=None):
     resgpt2_model.load_state_dict(
         torch.load(os.path.join(resgpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')))
     vggpt2_model.set_train_on(False)
-
-    light_vgg_model.load_state_dict(
-        torch.load(resources_path(
-            os.path.join('models', 'light', 'vgg-gpt2', 'checkpoints', 'latest', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth')), map_location='cuda:0'))
-
-    light_res_model.load_state_dict(
-        torch.load(resources_path(
-            os.path.join('models', 'light', 'res-gpt2', 'checkpoints', 'latest', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth')),map_location='cuda:0'))
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))
 
@@ -186,26 +182,83 @@ def prepare_data(split='testing', skip=None):
                           bert.bert_tokenizer.sep_token_id],
             'model': bert_model
         },
-        'light-vgg-gpt2': {
+        'VGG Linear+AVG': {
             'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
-            'model': light_vgg_model,
+            'model': load_model(LightVggGpt2, os.path.join(light_path, 'vgg-gpt2', 'B_124_LR_5e-05_CHKP_EPOCH_19.pth')),
             'predict_fn': light_predict_fn
         },
-        'light-res-gpt2': {
+        'ResNet Linear+AVG': {
             'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
-            'model': light_res_model,
+            'model': load_model(LightResGpt2, os.path.join(light_path, 'res-gpt2', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth')),
+            'predict_fn': light_predict_fn
+        },
+        'VGG AVG+Linear': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': load_model(LightVggGpt2Avg,
+                                os.path.join(light_path, 'vgg-gpt2-avg', 'B_100_LR_0.0005_CHKP_EPOCH_4.pth')),
+            'predict_fn': light_predict_fn
+        },
+        'VGG MAX+Linear': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': load_model(LightVggGpt2Max,
+                                os.path.join(light_path, 'vgg-gpt2-max', 'B_100_LR_0.0005_CHKP_EPOCH_4.pth')),
+            'predict_fn': light_predict_fn
+        },
+        'VGG AVG+Linear+FixHead': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': load_model(LightVggGpt2Avg,
+                                os.path.join(light_path, 'vgg-gpt2-avg-fix-head', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth')),
+            'predict_fn': light_predict_fn
+        },
+        'VGG MAX+Linear+FixHead': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': load_model(LightVggGpt2Max,
+                                os.path.join(light_path, 'vgg-gpt2-max-fix-head', 'B_100_LR_5e-05_CHKP_EPOCH_19.pth')),
+            'predict_fn': light_predict_fn
+        },
+        'VGG AVG+Linear+Concat': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': load_model(LightVggGpt2AvgConcat,
+                                os.path.join(light_path, 'vgg-gpt2-avg-concat', 'B_124_LR_0.0005_CHKP_EPOCH_4.pth')),
             'predict_fn': light_predict_fn
         }
     }
 
-    # Make sure we are evaluating across the same exact samples
+    """,
+    'VGG MAX+Linear+Concat': {
+        'dataset': light_dataset_ts,
+        'vocab_size': len(light_tokenizer),
+        'decode_fn': nltk_decode_light_fn,
+        'stop_word': [light_tokenizer.eos_token_id],
+        'model': load_model(LightVggGpt2MaxConcat,
+                            os.path.join(light_path, 'vgg-gpt2-max-concat', '????????????????????????????')),
+        'predict_fn': light_predict_fn
+    }
+    """
 
+    # Make sure we are evaluating across the same exact samples
+    """
     assert sanity.cross_dataset_similarity(
         captioning_dataset_ts,
         gpt2_dataset_ts,
@@ -213,7 +266,7 @@ def prepare_data(split='testing', skip=None):
         vggpt2_dataset_ts
     )
     print('Cross similarity check passed: all datasets contain the same elements.')
-
+    """
     return data
 
 
@@ -240,6 +293,7 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
                 beam_size=beam_size,
                 stop_word=parameters['stop_word'],
                 max_len=limit,
+                device='cuda:1'
             )
         with open(paths.resources_path(destination,
                                        'beam_size_{}'.format(beam_size),
@@ -249,7 +303,6 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
 
     # Generate VQA Ready predictions
     convert_to_vqa()
-
 
 
 def compute_single_bleu(bleu, name, predictions, references, destination):
@@ -597,27 +650,27 @@ if __name__ == '__main__':
     prediction_dest = 'predictions'
     result_dest = 'results'
 
+    data = prepare_data()
+
     if gen_preds:
         generate_model_predictions(
-            data=prepare_data(),
+            data=data,
             beam_size=1,
             limit=20,
-            skip=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2'],
+            skip=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'VGG Linear+AVG', 'ResNet Linear+AVG'],
             destination=prediction_dest
         )
     if gen_results:
         print('Loading glove embeddings..')
         embs = api.load("glove-wiki-gigaword-100")
         evaluate(
-            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2', 'light-vgg-gpt2',
-                         'light-res-gpt2'],
+            model_names=list(data.keys()),
             source=prediction_dest,
             destination=result_dest,
             wm_embeddings=embs
         )
     if gen_plots:
         visualize(
-            model_names=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2', 'light-vgg-gpt2',
-                         'light-res-gpt2'],
+            model_names=list(data.keys()),
             source=result_dest
         )
