@@ -223,6 +223,7 @@ class Trainer:
             )
 
             # Early stopping
+            """
             if self.early_stopping is not None and self.early_stopping:
                 if self.last_test_loss is None:
                     self.last_test_loss = test_loss
@@ -239,3 +240,6 @@ class Trainer:
                     else:
                         self.last_test_loss = test_loss
                         self.since_improvement = 0
+            else:
+            """
+            return False
