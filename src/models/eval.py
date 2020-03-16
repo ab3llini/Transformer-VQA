@@ -182,7 +182,7 @@ def prepare_data(split='testing', skip=None):
                           bert.bert_tokenizer.sep_token_id],
             'model': bert_model
         },
-        'VGG Linear+AVG': {
+        'VGG Linear+SUM': {
             'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
@@ -190,7 +190,7 @@ def prepare_data(split='testing', skip=None):
             'model': load_model(LightVggGpt2, os.path.join(light_path, 'vgg-gpt2'), 'B_124_LR_5e-05_CHKP_EPOCH_19.pth'),
             'predict_fn': light_predict_fn
         },
-        'ResNet Linear+AVG': {
+        'ResNet Linear+SUM': {
             'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
@@ -239,26 +239,28 @@ def prepare_data(split='testing', skip=None):
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
-            'model': load_model(LightVggGpt2AvgConcat,
+            'model': load_model(LightVggGpt2MaxConcat,
                                 os.path.join(light_path, 'vgg-gpt2-max-concat'), 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'),
             'predict_fn': light_predict_fn
         }
     }
 
-    """,
-    'VGG AVG+Linear+Concat': {
-        'dataset': light_dataset_ts,
-        'vocab_size': len(light_tokenizer),
-        'decode_fn': nltk_decode_light_fn,
-        'stop_word': [light_tokenizer.eos_token_id],
-        'model': load_model(LightVggGpt2MaxConcat,
-                            os.path.join(light_path, 'vgg-gpt2-max-concat'), '????????????????????????????'),
-        'predict_fn': light_predict_fn
-    }
-    """
 
     # Make sure we are evaluating across the same exact samples
     """
+    
+    ,
+        'VGG AVG+Linear+Concat': {
+            'dataset': light_dataset_ts,
+            'vocab_size': len(light_tokenizer),
+            'decode_fn': nltk_decode_light_fn,
+            'stop_word': [light_tokenizer.eos_token_id],
+            'model': load_model(LightVggGpt2AvgConcat,
+                                os.path.join(light_path, 'vgg-gpt2-max-concat'),
+                                'LightVggGpt2AvgConcat_bs=150_lr=0.0005_e=12.pth'),
+            'predict_fn': light_predict_fn
+        }
+    
     assert sanity.cross_dataset_similarity(
         captioning_dataset_ts,
         gpt2_dataset_ts,
@@ -644,8 +646,8 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = True
-    gen_results = True
+    gen_preds = False
+    gen_results = False
     gen_plots = True
     prediction_dest = 'predictions'
     result_dest = 'results'
@@ -657,7 +659,15 @@ if __name__ == '__main__':
             data=data,
             beam_size=1,
             limit=20,
-            skip=['captioning', 'bert', 'gpt2', 'vqa_baseline', 'vggpt2', 'resgpt2', 'VGG Linear+AVG', 'ResNet Linear+AVG'],
+            skip=['captioning',
+                  'bert',
+                  'gpt2',
+                  'vqa_baseline',
+                  'vggpt2',
+                  'resgpt2',
+                  'VGG Linear+AVG',
+                  'ResNet Linear+AVG'
+                  ],
             destination=prediction_dest
         )
     if gen_results:
