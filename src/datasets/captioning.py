@@ -105,6 +105,7 @@ class CaptionDataset(MultiPurposeDataset):
         super(CaptionDataset, self).__init__(location, split, maxlen, evaluating)
 
         word_map_file = resources_path(location, 'wordmap.json')
+
         with open(word_map_file, 'r') as j:
             self.word_map = json.load(j)
 

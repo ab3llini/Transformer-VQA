@@ -26,6 +26,7 @@ from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import *
 import seaborn as sns;
 import nltk
+import pysftp
 
 sns.set()
 import matplotlib.pyplot as plt
@@ -35,8 +36,9 @@ import math
 from multiprocessing import Process
 import gensim.downloader as api
 
-evaluation_cache = json.load(open(paths.data_path('cache', 'evaluation.json'), 'r'))
-question_path, annotation_path, _ = get_data_paths(data_type='test')
+myHostname = "thesis-server"
+myUsername = "alberto"
+myPassword = "bellini123"
 
 
 def nltk_decode_gpt2_fn(pred):
@@ -63,10 +65,31 @@ def nltk_decode_bert_fn(pred):
         return ''
 
 
+def download_checkpoint(remote_src, local_src):
+    with pysftp.Connection(host=myHostname, username=myUsername, password=myPassword) as sftp:
+        sftp.get(remote_src, local_src)
+
+
 def load_model(class_name, base, checkpoint):
+    target = os.path.join(base, 'checkpoints', 'latest', checkpoint)
+    if not os.path.exists(target):
+        try:
+            os.makedirs('/'.join(target.split('/')[:-1]))
+        except:
+            pass
+        download_checkpoint('/home/alberto/thesis/' + '/'.join(target.split('/')[4:]), target)
+
     m = class_name()
-    m.load_state_dict(torch.load(os.path.join(base, 'checkpoints', 'latest', checkpoint), map_location='cuda:1'))
+    m.load_state_dict(torch.load(target, map_location='cuda:0'))
     return m
+
+
+evaluation_cache = paths.data_path('cache', 'evaluation.json')
+if not os.path.exists(evaluation_cache):
+    download_checkpoint('/home/alberto/thesis/' + '/'.join(evaluation_cache.split('/')[4:]), evaluation_cache)
+
+evaluation_cache = json.load(open(evaluation_cache, 'r'))
+question_path, annotation_path, _ = get_data_paths(data_type='test')
 
 
 def prepare_data(split='testing', skip=None):
@@ -99,6 +122,10 @@ def prepare_data(split='testing', skip=None):
                                           split=split,
                                           evaluating=True)
 
+    light_dataset_ts_old = light.LightDataset(location=(os.path.join(light_path, 'data', 'old')),
+                                              split=split,
+                                              evaluating=True)
+
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
         modelling_caption.attention_dim,
@@ -114,31 +141,51 @@ def prepare_data(split='testing', skip=None):
     vggpt2_model = modelling_vggpt2.VGGPT2()
     resgpt2_model = modelling_resgpt2.ResGPT2()
 
+    def check_download(checkpoint):
+        if not os.path.exists(checkpoint):
+            try:
+                os.makedirs('/'.join(checkpoint.split('/')[:-1]))
+            except:
+                pass
+            download_checkpoint('/home/alberto/thesis/' + '/'.join(checkpoint.split('/')[4:]), checkpoint)
+
+        return checkpoint
+
     captioning_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'captioning', 'checkpoints', 'best.pth'), map_location='cuda:1'))
+            check_download(
+                os.path.join(baseline_path, 'captioning', 'checkpoints', 'best.pth')), map_location='cuda:0'))
 
     gpt2_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'answering', 'gpt2', 'checkpoints', 'best.pth'), map_location='cuda:1'))
+            check_download(
+                os.path.join(baseline_path, 'answering', 'gpt2', 'checkpoints', 'best.pth')), map_location='cuda:0'))
 
     bert_model.load_state_dict(
         torch.load(
-            os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'best.pth'), map_location='cuda:1'))
+            check_download(
+                os.path.join(baseline_path, 'answering', 'bert', 'checkpoints', 'best.pth')), map_location='cuda:0'))
 
     vggpt2_model.load_state_dict(
-        torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'), map_location='cuda:1'))
+        torch.load(
+            check_download(
+                os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')),
+            map_location='cuda:0'))
+
     vggpt2_model.set_train_on(False)
 
     resgpt2_model.load_state_dict(
-        torch.load(os.path.join(resgpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'), map_location='cuda:1'))
+        torch.load(
+            check_download(
+                os.path.join(resgpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth')),
+            map_location='cuda:0'))
     vggpt2_model.set_train_on(False)
 
     word_map_file = paths.resources_path(os.path.join(baseline_path, 'captioning', 'data', 'wordmap.json'))
 
     with open(word_map_file, 'r') as j:
         word_map = json.load(j)
-        rev_word_map = {v: k for k, v in word_map.items()}
+    rev_word_map = {v: k for k, v in word_map.items()}
 
     print('Checkpoints loaded in RAM')
 
@@ -183,7 +230,7 @@ def prepare_data(split='testing', skip=None):
             'model': bert_model
         },
         'VGG Linear+SUM': {
-            'dataset': light_dataset_ts,
+            'dataset': light_dataset_ts_old,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
@@ -191,7 +238,7 @@ def prepare_data(split='testing', skip=None):
             'predict_fn': light_predict_fn
         },
         'ResNet Linear+SUM': {
-            'dataset': light_dataset_ts,
+            'dataset': light_dataset_ts_old,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
@@ -242,24 +289,23 @@ def prepare_data(split='testing', skip=None):
             'model': load_model(LightVggGpt2MaxConcat,
                                 os.path.join(light_path, 'vgg-gpt2-max-concat'), 'B_124_LR_0.0005_CHKP_EPOCH_4.pth'),
             'predict_fn': light_predict_fn
-        }
-    }
-
-
-    # Make sure we are evaluating across the same exact samples
-    """
-    
-    ,
+        },
         'VGG AVG+Linear+Concat': {
             'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
             'model': load_model(LightVggGpt2AvgConcat,
-                                os.path.join(light_path, 'vgg-gpt2-max-concat'),
+                                os.path.join(light_path, 'vgg-gpt2-avg-concat'),
                                 'LightVggGpt2AvgConcat_bs=150_lr=0.0005_e=12.pth'),
             'predict_fn': light_predict_fn
         }
+    }
+
+    # Make sure we are evaluating across the same exact samples
+    """
+    
+    
     
     assert sanity.cross_dataset_similarity(
         captioning_dataset_ts,
@@ -274,8 +320,16 @@ def prepare_data(split='testing', skip=None):
 
 def generate_model_predictions(data, beam_size, limit, skip=None, destination='predictions'):
     for model_name, parameters in data.items():
-        if skip is not None and model_name in skip:
+        target = paths.resources_path(destination,
+                                      'beam_size_{}'.format(beam_size),
+                                      'maxlen_{}'.format(limit),
+                                      model_name + '.json')
+
+        # Skip prediction if it already exists
+        if os.path.exists(target):
+            print(f'{target} already exists!')
             continue
+
         print('Generating predictions for {}'.format(model_name))
         if 'predict_fn' in parameters:
             print('Using custom prediction function')
@@ -295,7 +349,7 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
                 beam_size=beam_size,
                 stop_word=parameters['stop_word'],
                 max_len=limit,
-                device='cuda:1'
+                device='cuda:0'
             )
         with open(paths.resources_path(destination,
                                        'beam_size_{}'.format(beam_size),
@@ -304,6 +358,7 @@ def generate_model_predictions(data, beam_size, limit, skip=None, destination='p
             json.dump(predictions, fp)
 
     # Generate VQA Ready predictions
+    print('Generating VQA ready predictions..')
     convert_to_vqa()
 
 
@@ -378,7 +433,13 @@ def evaluate_model(name, answer_map, source, destination, wm_embeddings=None):
     print('\t\t({}) All done.'.format(name))
 
 
-def evaluate(model_names, source='predictions', destination='results', wm_embeddings=None):
+def get_models_in(directory):
+    return [m.split('.')[0] for m in os.listdir(resources_path(directory)) if
+            not (len(m.split('_')) > 1 and m.split('_')[0] == 'vqa' and m.split('_')[1] == 'ready')]
+
+
+def evaluate(source='predictions', destination='results', wm_embeddings=None):
+    model_names = get_models_in(source + '/beam_size_1/maxlen_20/')
     processes = {}
     with open(paths.data_path('cache', 'evaluation.json'), 'r') as fp:
         answer_map = json.load(fp)
@@ -394,11 +455,12 @@ def evaluate(model_names, source='predictions', destination='results', wm_embedd
     print('All done')
 
 
-def visualize(model_names, source='results'):
+def visualize(source='results'):
     bleu_scores = {}
     wm_scores = {}
     length_scores = {}
     accuracies = {}
+    model_names = get_models_in(source + '/bleu1')
 
     for bleu in [1, 2, 3, 4]:
         bleu_scores['bleu{}'.format(bleu)] = {}
@@ -652,35 +714,22 @@ if __name__ == '__main__':
     prediction_dest = 'predictions'
     result_dest = 'results'
 
-    data = prepare_data()
-
     if gen_preds:
         generate_model_predictions(
-            data=data,
+            data=prepare_data(),
             beam_size=1,
             limit=20,
-            skip=['captioning',
-                  'bert',
-                  'gpt2',
-                  'vqa_baseline',
-                  'vggpt2',
-                  'resgpt2',
-                  'VGG Linear+AVG',
-                  'ResNet Linear+AVG'
-                  ],
             destination=prediction_dest
         )
     if gen_results:
         print('Loading glove embeddings..')
         embs = api.load("glove-wiki-gigaword-100")
         evaluate(
-            model_names=list(data.keys()),
             source=prediction_dest,
             destination=result_dest,
             wm_embeddings=embs
         )
     if gen_plots:
         visualize(
-            model_names=list(data.keys()),
             source=result_dest
         )

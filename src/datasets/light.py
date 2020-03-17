@@ -16,7 +16,7 @@ gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 pad_token = gpt2_tokenizer._convert_token_to_id('-')
 
 
-def create_datasets(base_path):
+def create_datasets(base_path, double_q_mark=False):
     seq_counter = {
         'training': Counter(),
         'testing': Counter(),
@@ -29,8 +29,10 @@ def create_datasets(base_path):
 
         if question[-1] != '?':
             print('Warning: question: "{}" doesn\'t have a question mark at the end. Fixing..'.format(question))
-            # Due to this mis alignment the model was trained with sep ?? instead of ?. Do not touch this line
-        question = question + '?'
+            question = question + '?'
+
+        if double_q_mark:
+            question = question + '?'
 
         question_tkn = gpt2_tokenizer.encode(question)
         question_tkn_len = len(question_tkn)
@@ -120,8 +122,12 @@ class LightDataset(MultiPurposeDataset):
                    image
         else:
             return __id, torch.tensor(question).long(), \
-                   image, \
+                   image
+
 
 if __name__ == '__main__':
     path = resources_path('models', 'light', 'data')
     create_datasets(path)
+
+    path = resources_path('models', 'light', 'data', 'old')
+    create_datasets(path, double_q_mark=True)

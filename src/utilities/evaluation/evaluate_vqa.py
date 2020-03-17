@@ -70,11 +70,17 @@ def convert_to_vqa():
 
     for p in predictions:
         check = p.split('_')
+        print(f'- Converting {p}')
         if check and len(check) > 0:
             if check[0] == 'vqa':
                 if len(check) > 1:
                     if check[1] == 'ready':
+                        print(f'Skipping {p}')
                         continue
+        target = os.path.join(path, 'vqa_ready_{}'.format(p))
+        if os.path.exists(target):
+            print(f'File {target} already exists, skipping..')
+            continue
         model_pred = os.path.join(path, p)
         with open(model_pred, 'r') as fp:
             p_data = json.load(fp)
@@ -89,7 +95,7 @@ def convert_to_vqa():
                 'answer': ' '.join(ans)
             })
 
-        with open(os.path.join(path, 'vqa_ready_{}'.format(p)), 'w+') as fp:
+        with open(target, 'w+') as fp:
             json.dump(vqa_res, fp)
 
 if __name__ == '__main__':
