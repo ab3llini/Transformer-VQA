@@ -122,9 +122,6 @@ def prepare_data(split='testing', skip=None):
                                           split=split,
                                           evaluating=True)
 
-    light_dataset_ts_old = light.LightDataset(location=(os.path.join(light_path, 'data', 'old')),
-                                              split=split,
-                                              evaluating=True)
 
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
@@ -230,7 +227,7 @@ def prepare_data(split='testing', skip=None):
             'model': bert_model
         },
         'VGG Linear+SUM': {
-            'dataset': light_dataset_ts_old,
+            'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
@@ -238,7 +235,7 @@ def prepare_data(split='testing', skip=None):
             'predict_fn': light_predict_fn
         },
         'ResNet Linear+SUM': {
-            'dataset': light_dataset_ts_old,
+            'dataset': light_dataset_ts,
             'vocab_size': len(light_tokenizer),
             'decode_fn': nltk_decode_light_fn,
             'stop_word': [light_tokenizer.eos_token_id],
