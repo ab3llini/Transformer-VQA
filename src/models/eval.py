@@ -6,14 +6,14 @@ this_path = os.path.dirname(os.path.realpath(__file__))
 root_path = os.path.abspath(os.path.join(this_path, os.pardir))
 sys.path.append(root_path)
 
+
 from datasets import captioning, gpt2, bert, vggpt2, resgpt2, light
 from utilities.evaluation import sanity
 from utilities.evaluation.evaluate_vqa import vqa_evaluation, convert_to_vqa
 
 from utilities.vqa.dataset import get_data_paths
-from utilities import paths
+
 import torch
-import numpy as np
 import models.baseline.captioning.train as modelling_caption
 import models.vggpt2.model as modelling_vggpt2
 import models.resgpt2.model as modelling_resgpt2
@@ -24,15 +24,11 @@ from models.light.model import gpt2_tokenizer as light_tokenizer
 
 from transformers import GPT2LMHeadModel, BertForMaskedLM
 from utilities.evaluation.evaluate import *
-import seaborn as sns;
 import nltk
 import pysftp
-
-sns.set()
-import matplotlib.pyplot as plt
-import pandas as pd
-import json
 import math
+
+
 from multiprocessing import Process
 import gensim.downloader as api
 
@@ -40,6 +36,13 @@ myHostname = "thesis-server"
 myUsername = "alberto"
 myPassword = "bellini123"
 
+import numpy as np
+from utilities import paths
+import seaborn as sns;
+import json
+import pandas as pd
+sns.set()
+import matplotlib.pyplot as plt
 
 def nltk_decode_gpt2_fn(pred):
     try:
@@ -121,7 +124,6 @@ def prepare_data(split='testing', skip=None):
     light_dataset_ts = light.LightDataset(location=(os.path.join(light_path, 'data')),
                                           split=split,
                                           evaluating=True)
-
 
     # Define model skeletons
     captioning_model = modelling_caption.CaptioningModel(
@@ -458,19 +460,34 @@ def visualize(source='results'):
     length_scores = {}
     accuracies = {}
     model_names = get_models_in(source + '/bleu1')
+    remapped_names = []
+    remap = {
+        'gpt2': 'Q+A Baseline GPT-2',
+        'bert': 'Q+A Baseline BERT',
+        'captioning': 'Q+I Baseline Captioning',
+        'vggpt2': 'VGGPT-2',
+        'resgpt2': 'ResGPT-2',
+    }
+
+    # Remap names
+    for i, name in enumerate(model_names):
+        if name in remap:
+            remapped_names.append(remap[name])
+        else:
+            remapped_names.append(name)
 
     for bleu in [1, 2, 3, 4]:
         bleu_scores['bleu{}'.format(bleu)] = {}
-        for name in model_names:
+        for name, remapped_name in zip(model_names, remapped_names):
             with open(paths.resources_path(source, 'bleu{}'.format(bleu), '{}.json'.format(name)), 'r') as fp:
-                bleu_scores['bleu{}'.format(bleu)][name] = json.load(fp)
-    for name in model_names:
+                bleu_scores['bleu{}'.format(bleu)][remapped_name] = json.load(fp)
+    for name, remapped_name in zip(model_names, remapped_names):
         with open(paths.resources_path(source, 'word_mover', '{}.json'.format(name)), 'r') as fp:
-            wm_scores[name] = json.load(fp)
+            wm_scores[remapped_name] = json.load(fp)
         with open(paths.resources_path(source, 'length', '{}.json'.format(name)), 'r') as fp:
-            length_scores[name] = json.load(fp)
+            length_scores[remapped_name] = json.load(fp)
         with open(paths.resources_path(source, 'vqa', '{}'.format(name), 'accuracy.json'), 'r') as fp:
-            accuracies[name] = json.load(fp)
+            accuracies[remapped_name] = json.load(fp)
 
     """ INIT LATEX OUT """
     smooths = []
@@ -526,7 +543,7 @@ def visualize(source='results'):
 
     dff = pd.DataFrame(bleu_plot)
     g = sns.catplot(x="Model", y="Value", col="Metric", row='Smoothing', margin_titles=True, data=dff, saturation=.5,
-                    kind="bar", ci=None)
+                    kind="bar", ci=None, order="Value")
     for ax in g.axes.flat:
         for label in ax.get_xticklabels():
             label.set_rotation(90)
@@ -705,8 +722,8 @@ if __name__ == '__main__':
     """
     Configuration
     """
-    gen_preds = True
-    gen_results = True
+    gen_preds = False
+    gen_results = False
     gen_plots = True
     prediction_dest = 'predictions'
     result_dest = 'results'
