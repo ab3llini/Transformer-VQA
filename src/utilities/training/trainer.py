@@ -73,6 +73,10 @@ class Trainer:
                 if gpu != '' and int(gpu) < torch.cuda.device_count():
                     self.device = torch.device('cuda:{}'.format(gpu))
 
+        batch_size = input(f'Proceed with batch size = {self.batch_size}? If no: ')
+        if batch_size != '' and int(batch_size) < 1000:
+            self.batch_size = int(batch_size)
+
         self.model.to(self.device)
         self.model.zero_grad()
 
