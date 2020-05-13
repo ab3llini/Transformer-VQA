@@ -114,12 +114,15 @@ class Trainer:
             epoch_timer = time.time()
             for it, batch in enumerate(loader):
                 # Move tensors to device
-                batch = list(map(lambda tensor: tensor.to(self.device), batch))
-
                 self.optimizer.zero_grad()
 
                 # Computing model output
-                out = self.model(*batch)
+                if type(batch) == list:
+                    batch = list(map(lambda tensor: tensor.to(self.device), batch))
+                    out = self.model(*batch)
+                else:
+                    batch = batch.to(self.device)
+                    out = self.model(batch)
 
                 # Compute the loss
                 loss = self.loss(out, batch)
@@ -190,8 +193,13 @@ class Trainer:
         with torch.no_grad():
             for it, batch in enumerate(loader):
 
-                batch = list(map(lambda tensor: tensor.to(self.device), batch))
-                out = self.model(*batch)
+                # Computing model output
+                if type(batch) == list:
+                    batch = list(map(lambda tensor: tensor.to(self.device), batch))
+                    out = self.model(*batch)
+                else:
+                    batch = batch.to(self.device)
+                    out = self.model(batch)
 
                 # Compute the loss
                 loss = self.loss(out, batch)
@@ -223,7 +231,7 @@ class Trainer:
             )
 
             # Early stopping
-            """
+
             if self.early_stopping is not None and self.early_stopping:
                 if self.last_test_loss is None:
                     self.last_test_loss = test_loss
@@ -240,6 +248,6 @@ class Trainer:
                     else:
                         self.last_test_loss = test_loss
                         self.since_improvement = 0
+                        return False
             else:
-            """
-            return False
+                return False

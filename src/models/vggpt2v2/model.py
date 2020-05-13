@@ -10,27 +10,8 @@ from modules.image_encoders import *
 from torchvision import models
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from modules.attention import CoAttention
-
+from modules.mm import ModularGpt2
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-
-
-class ModularGpt2(nn.Module):
-    def __init__(self):
-        super(ModularGpt2, self).__init__()
-
-        gpt2 = GPT2LMHeadModel.from_pretrained('gpt2')
-        self.head = list(gpt2.children())[1]
-        self.gpt2 = list(gpt2.children())[0]
-
-    def show_params(self):
-        for name, param in self.named_parameters():
-            if param.requires_grad:
-                print('Trainable : TRUE ->', name)
-            else:
-                print('Trainable : FALSE ->', name)
-
-        print('Trainable parameters: {}'.format(sum(p.numel() for p in self.parameters() if p.requires_grad)))
-        print('Total parameters: {}'.format(sum(p.numel() for p in self.parameters())))
 
 
 class VGGPTv2(ModularGpt2):
