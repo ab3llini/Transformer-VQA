@@ -9,7 +9,6 @@ import torch
 from utilities.vqa.dataset import *
 from transformers import GPT2Tokenizer
 from datasets.creator import DatasetCreator, MultiPurposeDataset
-from utilities.evaluation.beam_search import BeamSearchInput
 from collections import Counter
 
 
@@ -26,6 +25,9 @@ def create_datasets(base_path):
     }
 
     print('Using eos = {}'.format(gpt2_tokenizer.eos_token))
+    print('Using pad = {}'.format(gpt2_tokenizer.pad_token))
+    print('Using sep = {}'.format(gpt2_tokenizer.sep_token))
+    print('Using bos = {}'.format(gpt2_tokenizer.bos_token))
 
     def elem_processing_fn(question_id, question, image_path, answer, split):
 
@@ -34,6 +36,7 @@ def create_datasets(base_path):
             question = question + '?'
 
         question_tkn = gpt2_tokenizer.encode(question)
+        question_tkn = [gpt2_tokenizer.bos_token_id] + question_tkn + [gpt2_tokenizer.sep_token_id]
         question_tkn_len = len(question_tkn)
         answer_tkn = gpt2_tokenizer.encode(answer)
         answer_tkn = answer_tkn + [gpt2_tokenizer.eos_token_id]

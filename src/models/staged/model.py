@@ -12,11 +12,13 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
 from datasets.gpt2 import *
+from datasets.vggpt2v2 import *
 
 # Import of what we will use
 from modules.mm import ModularGpt2
 from modules.loss import GPT2Loss
 from utilities.training.trainer import Trainer
+from modules.image_encoders import *
 
 # Goal of this model
 
@@ -33,14 +35,13 @@ tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 tokenizer.add_special_tokens(
     {'pad_token': '<pad>', 'bos_token': '<bos>', 'eos_token': '<eos>', 'sep_token': '<sep>'}
 )
+loss = GPT2Loss(
+    pad_token_id=gpt2_tokenizer._convert_token_to_id('<pad>')
+)
 
 
-def stage_one() -> ModularGpt2:
+def stage_one():
     basepath = os.path.join('models', 'baseline', 'answering', 'gpt2')
-
-    loss = GPT2Loss(
-        pad_token_id=gpt2_tokenizer._convert_token_to_id('<pad>')
-    )
 
     model = ModularGpt2(emd_size=len(gpt2_tokenizer))
 
@@ -49,7 +50,7 @@ def stage_one() -> ModularGpt2:
 
     learning_rate = 5e-5
     epochs = 10
-    batch_size = 64
+    batch_size = 128
     early_stopping = None
 
     trainer = Trainer(
@@ -72,6 +73,48 @@ def stage_one() -> ModularGpt2:
     )
 
     trainer.run()
+
+
+class StageTwo(ModularGpt2):
+    def __init__(self, stage_one_checkpoint):
+        # Initialize a stage one model
+        super(StageTwo, self).__init__(emd_size=len(gpt2_tokenizer))
+        # Initialize from checkpoint
+        self.load_state_dict(torch.load(stage_one_checkpoint))
+        # Add Image Encoder
+        self.image_encoder = ResNetEncoder(encoded_image_size=14, instance=models.resnet152(pretrained=True))
+        # Linear compression (from 2048 to 768)
+        self.linear = nn.Linear(in_features=2048, out_features=768)
+
+    def forward(self, sequence, image):
+        # (Batch size, 192, 2048)
+        maps = self.image_encoder(image).reshape(-1, 14 * 14, 2048)
+        # (Batch size, 1, 2048)
+        attention = maps.mean(dim=1)
+        # (Batch size, 1, 768)
+        attention = self.linear(attention)
+        # (Batch size, sequence length, 768)
+        hiddens = self.gpt2(sequence)[0]
+        # (Batch size, sequence length, 768)
+        pointwise = maps * attention
+        # (Batch size, sequence length, voc_size)
+        out = self.head(pointwise)
+
+        return out
+
+
+def stage_two():
+    # Load stage one checkpoint
+    checkpoint_n = 'ModularGpt2_bs=128_lr=5e-05_e=9.pth'
+    checkpoint_p = resources_path('models', 'baseline', 'answering', 'gpt2', 'checkpoints', 'latest')
+    checkpoint = os.path.join(checkpoint_p, checkpoint_n)
+
+    model = StageTwo(stage_one_checkpoint=checkpoint)
+
+    learning_rate = 5e-5
+    epochs = 10
+    batch_size = 64
+    early_stopping = None
 
 
 if __name__ == '__main__':
