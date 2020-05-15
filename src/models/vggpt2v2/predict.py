@@ -9,7 +9,7 @@ from torch.optim import Adam
 from utilities.training.trainer import Trainer
 from utilities.paths import resources_path
 from datasets.light import LightDataset, pad_token
-from modules.loss import LightLoss
+from modules.loss import VisualGPT2Loss
 from models.light.model import LightVggGpt2, LightResGpt2, gpt2_tokenizer
 import torch
 from torch.utils.data import DataLoader

@@ -9,14 +9,14 @@ from torch.optim import Adam
 from utilities.training.trainer import Trainer
 from utilities.paths import resources_path
 from datasets.vggpt2v2 import VGGPT2v2Dataset
-from modules.loss import LightLoss
+from modules.loss import VisualGPT2Loss
 from models.vggpt2v2.model import VGGPTv2, gpt2_tokenizer
 
 
 def train(batch_size=20):
     basepath = os.path.join('models', 'vggpt2v2')
 
-    loss = LightLoss(
+    loss = VisualGPT2Loss(
         pad_token_id=gpt2_tokenizer._convert_token_to_id('-'),
         extract=0
     )

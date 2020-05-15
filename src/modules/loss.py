@@ -23,9 +23,9 @@ class GPT2Loss(CrossEntropyLoss):
         return super(GPT2Loss, self).forward(output, labels)
 
 
-class LightLoss(GPT2Loss):
+class VisualGPT2Loss(GPT2Loss):
     def __init__(self, pad_token_id, extract=None):
-        super(LightLoss, self).__init__(pad_token_id=pad_token_id)
+        super(VisualGPT2Loss, self).__init__(pad_token_id=pad_token_id)
         if extract is not None:
             assert type(extract) == int, 'Extract value MUST be integer'
 
@@ -36,7 +36,7 @@ class LightLoss(GPT2Loss):
             output = output[self.extract]
 
         # Compute the actual loss
-        return super(LightLoss, self).forward(output, labels[0])
+        return super(VisualGPT2Loss, self).forward(output, labels[0])
 
 
 class BERTLoss(CrossEntropyLoss):

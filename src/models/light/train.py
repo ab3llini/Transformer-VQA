@@ -9,7 +9,7 @@ from torch.optim import Adam
 from utilities.training.trainer import Trainer
 from utilities.paths import resources_path
 from datasets.light import LightDataset
-from modules.loss import LightLoss
+from modules.loss import VisualGPT2Loss
 from models.light.model import LightVggGpt2AvgConcat, gpt2_tokenizer
 import torch
 
@@ -17,7 +17,7 @@ import torch
 def train(data, batch_size=124):
     basepath = os.path.join('models', 'light', data['name'])
 
-    loss = LightLoss(pad_token_id=gpt2_tokenizer._convert_token_to_id('-'))
+    loss = VisualGPT2Loss(pad_token_id=gpt2_tokenizer._convert_token_to_id('-'))
     model = data['model']
     tr_dataset = LightDataset(resources_path(os.path.join('models', 'light', 'data')))
     ts_dataset = LightDataset(resources_path(os.path.join('models', 'light', 'data')), split='testing')
