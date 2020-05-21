@@ -6,13 +6,32 @@ root_path = os.path.abspath(os.path.join(this_path, os.pardir, os.pardir))
 sys.path.append(root_path)
 
 import torch
+from utilities.vqa.dataset import *
 
 
-def answer(model, stop_words, max_len, device, tokenizer, *args):
+def answer(model, stop_words, max_len, device, tokenizer, prepare_inputs, *args):
+
     model.to(device)
 
-    # Prepare inputs (always question, eventual image)
-    tensors = [convert_q(prepare_q(args[0], tokenizer))]
+    if prepare_inputs:
+        # Prepare inputs (always question, eventual image)
+        tensors = [
+            convert_q(prepare_q(args[0], tokenizer))
+        ]
+        if len(args) > 1:
+            tensors.append(
+                normalized_tensor_image(
+                    resize_image(
+                        load_image(
+                            image_rel_path=args[1]
+                        )
+                    )
+                ).unsqueeze(0)
+            )
+    else:
+        tensors = args
+
+    # Move tensors to device
     tensors = list(map(lambda arg: arg.to(device), tensors))
 
     with torch.no_grad():
