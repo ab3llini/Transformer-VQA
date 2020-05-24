@@ -17,6 +17,16 @@ from utilities.training.trainer import Trainer
 from modules.image_encoders import *
 from utilities.evaluation import predict as pred
 
+# Ignite
+from transformers.optimization import AdamW
+from ignite.engine import Engine, Events
+from ignite.metrics import RunningAverage, Accuracy
+from ignite.handlers import ModelCheckpoint
+from torch.utils.data import DataLoader
+from ignite.contrib.handlers import ProgressBar
+
+import wandb
+
 # Goal of this model
 
 # 1) train the transformer WITHOUT the images to perform QA. Do it the same as you were doing it previously -- either on
@@ -253,6 +263,85 @@ def stage_three(checkpoint_n):
     trainer.run()
 
 
+def ignite_stage_three(checkpoint_n, device):
+    # Load stage one checkpoint
+    checkpoint_n = f'ModularGpt2_bs=128_lr=5e-05_e={checkpoint_n}.pth'
+    checkpoint_p = resources_path('models', 'baseline', 'answering', 'gpt2', 'checkpoints', 'latest')
+    checkpoint = os.path.join(checkpoint_p, checkpoint_n)
+
+    model = StageTwo(stage_one_checkpoint=None).to(device)
+
+    ds_bp = resources_path('models', 'vggpt2v2')
+    bp = resources_path('models', 'staged', 'ignite')
+
+    tr_dataset = VGGPT2v2Dataset(resources_path(os.path.join(ds_bp, 'data')))
+    ts_dataset = VGGPT2v2Dataset(resources_path(os.path.join(ds_bp, 'data')), split='testing')
+
+    # Data loaders
+    train_dl = DataLoader(tr_dataset, batch_size=16, shuffle=True, num_workers=2, pin_memory=True)
+    test_dl = DataLoader(ts_dataset, batch_size=16, shuffle=True, num_workers=2, pin_memory=True)
+
+    optimizer = AdamW(model.parameters(),
+                      lr=5e-5,  # args.learning_rate - default is 5e-5, our notebook had 2e-5
+                      eps=1e-8  # args.adam_epsilon  - default is 1e-8.
+                      )
+
+    criterion = GPT2Loss(
+        pad_token_id=gpt2_tokenizer._convert_token_to_id('<pad>')
+    )
+
+    # Train loop
+    def train_loop(engine, batch):
+        model.train()
+        optimizer.zero_grad()
+        sequence, image = list(map(lambda o: o.to(device), batch))
+
+        output = model(sequence, image)
+
+        loss = criterion(output, sequence)
+        loss.backward()
+        optimizer.step()
+        return loss.item()
+
+    def val_loop(engine, batch):
+        model.eval()
+        with torch.no_grad():
+            sequence, image = list(map(lambda o: o.to(device), batch))
+            output = model(sequence, image)
+            loss = criterion(output, sequence)
+        return loss.item()
+
+    trainer = Engine(train_loop)
+    validator = Engine(val_loop)
+
+    @trainer.on(Events.EPOCH_COMPLETED)
+    def log_validation_results(engine):
+        validator.run(test_dl)
+
+    RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
+    ProgressBar(persist=True).attach(trainer, metric_names=['loss'])
+
+    RunningAverage(output_transform=lambda x: x).attach(validator, "loss")
+    ProgressBar(persist=True).attach(validator, metric_names=['loss'])
+
+    # save checkpoints and config
+    checkpoint_handler = ModelCheckpoint(
+        bp,
+        'checkpoint',
+        n_saved=5,
+        save_as_state_dict=True,
+        save_interval=1,
+        require_empty=False
+    )
+
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'stage_3_model': model})
+
+    trainer.run(train_dl, max_epochs=20)
+
+    # save model weights
+    torch.save(model.state_dict(), os.path.join(bp, 'model.pth'))
+
+
 if __name__ == '__main__':
     # Pipeline
     # Train the QA Model first
@@ -275,4 +364,4 @@ if __name__ == '__main__':
     #     'What color is the box?',
     #     'train2014/COCO_train2014_000000000009.jpg'
     # )
-    stage_three(7)
+    ignite_stage_three(7, 'cuda:1')
