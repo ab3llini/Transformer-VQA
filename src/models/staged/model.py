@@ -94,7 +94,7 @@ class StageTwo(ModularGpt2):
 class StageThree(ModularGpt2):
     def __init__(self, stage_one_checkpoint):
         # Initialize a stage one model
-        super(StageTwo, self).__init__(emd_size=len(gpt2_tokenizer))
+        super(StageThree, self).__init__(emd_size=len(gpt2_tokenizer))
         # Initialize from checkpoint
         if stage_one_checkpoint:
             self.load_state_dict(torch.load(stage_one_checkpoint))
@@ -179,7 +179,7 @@ def stage_two(checkpoint_n):
     checkpoint_p = resources_path('models', 'baseline', 'answering', 'gpt2', 'checkpoints', 'latest')
     checkpoint = os.path.join(checkpoint_p, checkpoint_n)
 
-    model = StageTwo(stage_one_checkpoint=checkpoint)
+    model = StageThree(stage_one_checkpoint=checkpoint)
 
     ds_bp = resources_path('models', 'vggpt2v2')
     bp = resources_path('models', 'staged')
@@ -224,7 +224,7 @@ def stage_three(checkpoint_n):
     checkpoint_p = resources_path('models', 'baseline', 'answering', 'gpt2', 'checkpoints', 'latest')
     checkpoint = os.path.join(checkpoint_p, checkpoint_n)
 
-    model = StageTwo(stage_one_checkpoint=checkpoint)
+    model = StageThree(stage_one_checkpoint=checkpoint)
 
     ds_bp = resources_path('models', 'vggpt2v2')
     bp = resources_path('models', 'staged')
@@ -364,4 +364,5 @@ if __name__ == '__main__':
     #     'What color is the box?',
     #     'train2014/COCO_train2014_000000000009.jpg'
     # )
+    stage_three(7)
     ignite_stage_three(7, 'cuda:1')
