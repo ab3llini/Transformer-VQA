@@ -365,4 +365,4 @@ if __name__ == '__main__':
     #     'train2014/COCO_train2014_000000000009.jpg'
     # )
     stage_three(7)
-    ignite_stage_three(7, 'cuda:1')
+    ignite_stage_three(7, 'cuda:0')
