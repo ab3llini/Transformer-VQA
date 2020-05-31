@@ -269,7 +269,7 @@ def ignite_stage_three(checkpoint_n, device):
     checkpoint_p = resources_path('models', 'baseline', 'answering', 'gpt2', 'checkpoints', 'latest')
     checkpoint = os.path.join(checkpoint_p, checkpoint_n)
 
-    model = StageTwo(stage_one_checkpoint=None).to(device)
+    model = StageThree(stage_one_checkpoint=None).to(device)
 
     ds_bp = resources_path('models', 'vggpt2v2')
     bp = resources_path('models', 'staged', 'ignite')
@@ -278,8 +278,8 @@ def ignite_stage_three(checkpoint_n, device):
     ts_dataset = VGGPT2v2Dataset(resources_path(os.path.join(ds_bp, 'data')), split='testing')
 
     # Data loaders
-    train_dl = DataLoader(tr_dataset, batch_size=16, shuffle=True, num_workers=2, pin_memory=True)
-    test_dl = DataLoader(ts_dataset, batch_size=16, shuffle=True, num_workers=2, pin_memory=True)
+    train_dl = DataLoader(tr_dataset, batch_size=24, shuffle=True, num_workers=2, pin_memory=True)
+    test_dl = DataLoader(ts_dataset, batch_size=24, shuffle=True, num_workers=2, pin_memory=True)
 
     optimizer = AdamW(model.parameters(),
                       lr=5e-5,  # args.learning_rate - default is 5e-5, our notebook had 2e-5
@@ -364,5 +364,5 @@ if __name__ == '__main__':
     #     'What color is the box?',
     #     'train2014/COCO_train2014_000000000009.jpg'
     # )
-    stage_three(7)
+    # stage_three(7)
     ignite_stage_three(7, 'cuda:0')
