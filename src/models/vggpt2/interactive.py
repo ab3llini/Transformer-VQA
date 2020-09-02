@@ -46,7 +46,7 @@ def init_singletons():
         checkpoint = torch.load(os.path.join(vggpt2_path, 'checkpoints', 'latest', 'B_20_LR_5e-05_CHKP_EPOCH_19.pth'))
 
         model = VGGPT2()
-        model.to('cuda:1').set_train_on(False)
+        model.to('cuda:0').set_train_on(False)
         model.load_state_dict(checkpoint)
 
         init = True
@@ -60,18 +60,18 @@ def answer(question, image, args=None):
     # Resize and convert image to tensor
     torch.manual_seed(0)
     resized_image = resize_image(image)
-    tensor_image = normalized_tensor_image(resized_image).to('cuda:1')
+    tensor_image = normalized_tensor_image(resized_image).to('cuda:0')
 
     # Encode question
     question_tkn = gpt2_tokenizer.encode(question)
     question_tkn = [gpt2_tokenizer.bos_token_id] + question_tkn + [gpt2_tokenizer.sep_token_id]
-    tensor_question = torch.tensor(question_tkn).long().to('cuda:1')
+    tensor_question = torch.tensor(question_tkn).long().to('cuda:0')
 
     # Prepare Beam search input
     beam_input = BeamSearchInput(0, 0, tensor_question, tensor_image)
 
     # Predict
-    ans, softmaps = do_beam_search(model, tensor_question, resized_image, beam_input, device='cuda:1')
+    ans, softmaps = do_beam_search(model, tensor_question, resized_image, beam_input, device='cuda:0')
 
     return ans, [resized_image, softmaps]
 
