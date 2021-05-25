@@ -53,7 +53,7 @@ We are currently writing a paper for **IJCAI 2020** and **ACL2020** and hope to 
 
 #### Web Demo
 
-Even though we developed an online interactive demo, we don't have any public VM with a static IP nor any domain to make it accessible world-wide. Sorry, we'll try our best to make it public ASAP but the costs are not neglegible. Thank you.
+You can access a live demo [Here](http://https://neuraly.ai/demos/ "Here") 
 
 #### Qualitative results
 
